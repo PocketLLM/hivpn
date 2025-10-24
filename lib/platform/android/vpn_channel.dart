@@ -1,13 +1,43 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 
 import '../../services/vpn/vpn_port.dart';
 import '../../services/vpn/wg_config.dart';
 
 class AndroidVpnChannel implements VpnPort {
-  AndroidVpnChannel({MethodChannel? channel})
-      : _channel = channel ?? const MethodChannel('com.example.vpn/VpnChannel');
+  factory AndroidVpnChannel({MethodChannel? channel}) {
+    _instance ??= AndroidVpnChannel._(
+      channel ?? const MethodChannel('com.example.vpn/VpnChannel'),
+    );
+    return _instance!;
+  }
 
-  final MethodChannel _channel;
+  AndroidVpnChannel._(MethodChannel channel) : _channel = channel {
+    _channel.setMethodCallHandler(_handleMethodCall);
+  }
+
+  static AndroidVpnChannel? _instance;
+
+  MethodChannel _channel;
+  final StreamController<String> _intentActionsController =
+      StreamController<String>.broadcast();
+
+  @override
+  Stream<String> get intentActions => _intentActionsController.stream;
+
+  Future<void> _handleMethodCall(MethodCall call) async {
+    switch (call.method) {
+      case 'notifyIntentAction':
+        final action = call.arguments as String?;
+        if (action != null && action.isNotEmpty) {
+          _intentActionsController.add(action);
+        }
+        return;
+      default:
+        return;
+    }
+  }
 
   @override
   Future<bool> prepare() async {
@@ -39,5 +69,19 @@ class AndroidVpnChannel implements VpnPort {
   Future<Map<String, dynamic>> getTunnelStats() async {
     final result = await _channel.invokeMapMethod<String, dynamic>('getTunnelStats');
     return result ?? <String, dynamic>{};
+  }
+
+  @override
+  Future<int> elapsedRealtime() async {
+    final result = await _channel.invokeMethod<int>('elapsedRealtime');
+    return result ?? DateTime.now().millisecondsSinceEpoch;
+  }
+
+  @override
+  Future<void> extendSession({required int additionalDurationMs, String? ip}) async {
+    await _channel.invokeMethod<void>('extendSession', {
+      'additionalDurationMs': additionalDurationMs,
+      'ip': ip,
+    });
   }
 }

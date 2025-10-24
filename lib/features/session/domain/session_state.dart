@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../../services/vpn/wg_config.dart';
+import 'session_meta.dart';
 import 'session_status.dart';
 
 part 'session_state.freezed.dart';
@@ -21,6 +22,11 @@ class SessionState with _$SessionState {
     String? errorMessage,
     @JsonKey(ignore: true) WgConfig? config,
     @Default(false) bool expired,
+    SessionMeta? meta,
+    @Default(false) bool sessionLocked,
+    String? queuedServerId,
+    @Default(false) bool extendRequested,
+    String? publicIp,
   }) = _SessionState;
 
   factory SessionState.initial() =>

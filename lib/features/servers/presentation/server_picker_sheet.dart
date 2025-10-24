@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/server.dart';
-import '../domain/server_catalog_controller.dart';
-import '../domain/server_selection.dart';
+import '../domain/server_providers.dart';
 import '../../session/domain/session_controller.dart';
 import '../../session/domain/session_status.dart';
 import '../../../widgets/server_tile.dart';
@@ -20,53 +19,12 @@ class ServerPickerSheet extends ConsumerWidget {
     final selectedServer = ref.watch(selectedServerProvider);
     final sessionState = ref.watch(sessionControllerProvider);
     final isConnected = sessionState.status == SessionStatus.connected;
+    final servers = catalog.sortedServers;
 
-    return serversAsync.when(
-      data: (servers) => ListView.builder(
-        itemCount: servers.length,
-        itemBuilder: (context, index) {
-          final server = servers[index];
-          return ServerTile(
-            server: server,
-            selected: selectedServer?.id == server.id,
-            onTap: isConnected
-                ? null
-                : () {
-                    unawaited(ref.read(hapticsServiceProvider).selection());
-                    ref.read(selectedServerProvider.notifier).select(server);
-                    Navigator.of(context).pop();
-                  },
-          );
-        },
-      ),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(
-        child: Text('Failed to load servers: $err'),
-      ),
-    );
-  }
-}
-
-class _ServerList extends StatelessWidget {
-  const _ServerList({
-    required this.servers,
-    required this.catalog,
-    required this.selectedServer,
-    required this.isConnected,
-    required this.ref,
-  });
-
-  final List<Server> servers;
-  final ServerCatalogState catalog;
-  final Server? selectedServer;
-  final bool isConnected;
-  final WidgetRef ref;
-
-  @override
-  Widget build(BuildContext context) {
     if (servers.isEmpty) {
-      return const Center(child: Text('No servers available.'));
+      return const Center(child: CircularProgressIndicator());
     }
+
     return ListView.builder(
       itemCount: servers.length,
       itemBuilder: (context, index) {
@@ -84,6 +42,7 @@ class _ServerList extends StatelessWidget {
           onTap: isConnected
               ? null
               : () {
+                  unawaited(ref.read(hapticsServiceProvider).selection());
                   ref.read(selectedServerProvider.notifier).select(server);
                   Navigator.of(context).pop();
                 },

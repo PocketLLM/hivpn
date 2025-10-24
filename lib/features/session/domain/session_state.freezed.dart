@@ -13,6 +13,11 @@ mixin _$SessionState {
   @JsonKey(ignore: true)
   WgConfig? get config => throw UnimplementedError();
   bool get expired => throw UnimplementedError();
+  SessionMeta? get meta => throw UnimplementedError();
+  bool get sessionLocked => throw UnimplementedError();
+  String? get queuedServerId => throw UnimplementedError();
+  bool get extendRequested => throw UnimplementedError();
+  String? get publicIp => throw UnimplementedError();
   Map<String, dynamic> toJson() => throw UnimplementedError();
   @JsonKey(ignore: true)
   $SessionStateCopyWith<SessionState> get copyWith =>
@@ -31,6 +36,11 @@ abstract class $SessionStateCopyWith<$Res> {
     String? errorMessage,
     WgConfig? config,
     bool expired,
+    SessionMeta? meta,
+    bool sessionLocked,
+    String? queuedServerId,
+    bool extendRequested,
+    String? publicIp,
   });
 }
 
@@ -49,6 +59,11 @@ class _$SessionStateCopyWithImpl<$Res> implements $SessionStateCopyWith<$Res> {
     Object? errorMessage = freezed,
     Object? config = freezed,
     Object? expired = freezed,
+    Object? meta = freezed,
+    Object? sessionLocked = freezed,
+    Object? queuedServerId = freezed,
+    Object? extendRequested = freezed,
+    Object? publicIp = freezed,
   }) {
     return _then(_value.copyWith(
       status: status == freezed ? _value.status : status as SessionStatus,
@@ -60,6 +75,17 @@ class _$SessionStateCopyWithImpl<$Res> implements $SessionStateCopyWith<$Res> {
           : errorMessage as String?,
       config: config == freezed ? _value.config : config as WgConfig?,
       expired: expired == freezed ? _value.expired : expired as bool,
+      meta: meta == freezed ? _value.meta : meta as SessionMeta?,
+      sessionLocked: sessionLocked == freezed
+          ? _value.sessionLocked
+          : sessionLocked as bool,
+      queuedServerId: queuedServerId == freezed
+          ? _value.queuedServerId
+          : queuedServerId as String?,
+      extendRequested: extendRequested == freezed
+          ? _value.extendRequested
+          : extendRequested as bool,
+      publicIp: publicIp == freezed ? _value.publicIp : publicIp as String?,
     ));
   }
 }
@@ -78,6 +104,11 @@ abstract class _$$_SessionStateCopyWith<$Res>
     String? errorMessage,
     WgConfig? config,
     bool expired,
+    SessionMeta? meta,
+    bool sessionLocked,
+    String? queuedServerId,
+    bool extendRequested,
+    String? publicIp,
   });
 }
 
@@ -100,6 +131,11 @@ class __$$_SessionStateCopyWithImpl<$Res>
     Object? errorMessage = freezed,
     Object? config = freezed,
     Object? expired = freezed,
+    Object? meta = freezed,
+    Object? sessionLocked = freezed,
+    Object? queuedServerId = freezed,
+    Object? extendRequested = freezed,
+    Object? publicIp = freezed,
   }) {
     return _then(_$_SessionState(
       status: status == freezed ? _value.status : status as SessionStatus,
@@ -111,6 +147,17 @@ class __$$_SessionStateCopyWithImpl<$Res>
           : errorMessage as String?,
       config: config == freezed ? _value.config : config as WgConfig?,
       expired: expired == freezed ? _value.expired : expired as bool,
+      meta: meta == freezed ? _value.meta : meta as SessionMeta?,
+      sessionLocked: sessionLocked == freezed
+          ? _value.sessionLocked
+          : sessionLocked as bool,
+      queuedServerId: queuedServerId == freezed
+          ? _value.queuedServerId
+          : queuedServerId as String?,
+      extendRequested: extendRequested == freezed
+          ? _value.extendRequested
+          : extendRequested as bool,
+      publicIp: publicIp == freezed ? _value.publicIp : publicIp as String?,
     ));
   }
 }
@@ -125,6 +172,11 @@ class _$_SessionState extends _SessionState {
     this.errorMessage,
     @JsonKey(ignore: true) this.config,
     this.expired = false,
+    this.meta,
+    this.sessionLocked = false,
+    this.queuedServerId,
+    this.extendRequested = false,
+    this.publicIp,
   }) : super._();
 
   factory _$_SessionState.fromJson(Map<String, dynamic> json) =>
@@ -146,6 +198,18 @@ class _$_SessionState extends _SessionState {
   @override
   @JsonKey()
   final bool expired;
+  @override
+  final SessionMeta? meta;
+  @override
+  @JsonKey()
+  final bool sessionLocked;
+  @override
+  final String? queuedServerId;
+  @override
+  @JsonKey()
+  final bool extendRequested;
+  @override
+  final String? publicIp;
 
   @override
   Map<String, dynamic> toJson() {
@@ -158,7 +222,7 @@ class _$_SessionState extends _SessionState {
 
   @override
   String toString() {
-    return 'SessionState(status: $status, start: $start, duration: $duration, serverId: $serverId, errorMessage: $errorMessage, expired: $expired)';
+    return 'SessionState(status: $status, start: $start, duration: $duration, serverId: $serverId, errorMessage: $errorMessage, expired: $expired, meta: $meta, sessionLocked: $sessionLocked, queuedServerId: $queuedServerId, extendRequested: $extendRequested, publicIp: $publicIp)';
   }
 
   @override
@@ -170,7 +234,12 @@ class _$_SessionState extends _SessionState {
             duration == other.duration &&
             serverId == other.serverId &&
             errorMessage == other.errorMessage &&
-            expired == other.expired);
+            expired == other.expired &&
+            meta == other.meta &&
+            sessionLocked == other.sessionLocked &&
+            queuedServerId == other.queuedServerId &&
+            extendRequested == other.extendRequested &&
+            publicIp == other.publicIp);
   }
 
   @override
@@ -181,6 +250,11 @@ class _$_SessionState extends _SessionState {
         serverId,
         errorMessage,
         expired,
+        meta,
+        sessionLocked,
+        queuedServerId,
+        extendRequested,
+        publicIp,
       );
 }
 
@@ -193,6 +267,11 @@ abstract class _SessionState extends SessionState {
     final String? errorMessage,
     @JsonKey(ignore: true) final WgConfig? config,
     final bool expired,
+    final SessionMeta? meta,
+    final bool sessionLocked,
+    final String? queuedServerId,
+    final bool extendRequested,
+    final String? publicIp,
   }) = _$_SessionState;
   const _SessionState._() : super._();
 

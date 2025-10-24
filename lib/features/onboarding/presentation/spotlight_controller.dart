@@ -19,10 +19,13 @@ class SpotlightController {
       targets: targets,
       colorShadow: Colors.black87,
       textSkip: l10n.tutorialSkip,
-      onSkip: () => onSkip?.call(),
+      onSkip: () {
+        onSkip?.call();
+        return true;
+      },
       onFinish: () => onFinish?.call(),
     );
-    await _coachMark?.show(context);
+    await _coachMark?.show(context: context);
   }
 
   void dispose() {

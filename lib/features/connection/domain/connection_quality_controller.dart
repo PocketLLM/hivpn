@@ -3,14 +3,13 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../servers/domain/server.dart';
-import '../../servers/domain/server_selection.dart';
+import '../../servers/domain/server_providers.dart';
 import '../../session/domain/session_controller.dart';
 import '../../session/domain/session_state.dart';
 import '../../session/domain/session_status.dart';
 import '../../settings/domain/preferences_controller.dart';
 import '../../speedtest/domain/speedtest_controller.dart';
 import '../../speedtest/domain/speedtest_state.dart';
-import '../../servers/data/server_repository.dart';
 import 'connection_quality.dart';
 import 'connection_quality_state.dart';
 
@@ -86,13 +85,17 @@ class ConnectionQualityController
     if (!enabled) {
       return;
     }
+    final session = _ref.read(sessionControllerProvider);
+    if (session.sessionLocked) {
+      return;
+    }
     final lastSwitch = state.lastSwitch;
     if (lastSwitch != null &&
         DateTime.now().difference(lastSwitch) < const Duration(minutes: 5)) {
       return;
     }
 
-    final servers = await _ref.read(serversProvider.future);
+    final servers = _ref.read(serversProvider);
     if (servers.isEmpty) {
       return;
     }

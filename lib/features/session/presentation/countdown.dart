@@ -9,13 +9,15 @@ import '../../../services/time/session_clock_provider.dart';
 
 final sessionCountdownProvider = StreamProvider.autoDispose<Duration>((ref) {
   final state = ref.watch(sessionControllerProvider);
-  if (state.status != SessionStatus.connected ||
-      state.start == null ||
-      state.duration == null) {
+  final meta = state.meta;
+  if (state.status != SessionStatus.connected || meta == null) {
     return Stream<Duration>.value(Duration.zero);
   }
   final clock = ref.watch(sessionClockProvider);
-  return clock.countdownStream(start: state.start!, duration: state.duration!);
+  return clock.countdownStream(
+    startElapsedMs: meta.startElapsedMs,
+    duration: meta.duration,
+  );
 });
 
 class SessionCountdown extends ConsumerWidget {

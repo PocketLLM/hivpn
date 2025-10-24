@@ -18,6 +18,13 @@ _$_SessionState _$$_SessionStateFromJson(Map<String, dynamic> json) =>
       serverId: json['serverId'] as String?,
       errorMessage: json['errorMessage'] as String?,
       expired: json['expired'] as bool? ?? false,
+      meta: json['meta'] == null
+          ? null
+          : SessionMeta.fromJson(json['meta'] as Map<String, dynamic>),
+      sessionLocked: json['sessionLocked'] as bool? ?? false,
+      queuedServerId: json['queuedServerId'] as String?,
+      extendRequested: json['extendRequested'] as bool? ?? false,
+      publicIp: json['publicIp'] as String?,
     );
 
 Map<String, dynamic> _$$_SessionStateToJson(_$_SessionState instance) =>
@@ -28,6 +35,11 @@ Map<String, dynamic> _$$_SessionStateToJson(_$_SessionState instance) =>
       'serverId': instance.serverId,
       'errorMessage': instance.errorMessage,
       'expired': instance.expired,
+      'meta': instance.meta?.toJson(),
+      'sessionLocked': instance.sessionLocked,
+      'queuedServerId': instance.queuedServerId,
+      'extendRequested': instance.extendRequested,
+      'publicIp': instance.publicIp,
     };
 
 const _$SessionStatusEnumMap = {

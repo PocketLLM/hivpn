@@ -121,10 +121,11 @@ class SettingsController extends StateNotifier<SettingsState> {
 
   Future<void> recordSessionEnd(SessionState session,
       {required Server? server, required Map<String, dynamic> stats}) async {
-    if (server == null || session.start == null) return;
+    if (server == null) return;
     final history = _ref.read(connectionHistoryProvider.notifier);
-    final startedAt = DateTime.fromMillisecondsSinceEpoch(session.start!);
-    final endedAt = DateTime.now();
+    final startedAt = session.start ?? DateTime.now().toUtc();
+    final duration = session.duration ?? Duration.zero;
+    final endedAt = startedAt.add(duration);
     final bytesRx = (stats['rxBytes'] as num?)?.toInt() ?? 0;
     final bytesTx = (stats['txBytes'] as num?)?.toInt() ?? 0;
     await history.addRecord(
@@ -133,7 +134,7 @@ class SettingsController extends StateNotifier<SettingsState> {
         serverName: server.name,
         startedAt: startedAt,
         endedAt: endedAt,
-        durationSeconds: session.duration?.inSeconds ?? 0,
+        durationSeconds: duration.inSeconds,
         bytesReceived: bytesRx,
         bytesSent: bytesTx,
       ),

@@ -1,27 +1,42 @@
 import 'dart:async';
 
 class SessionClock {
-  const SessionClock();
+  const SessionClock(this._elapsedRealtimeProvider);
 
-  DateTime now() => DateTime.now().toUtc();
+  final Future<int> Function() _elapsedRealtimeProvider;
 
-  Duration remaining({required DateTime start, required Duration duration}) {
-    final elapsed = now().difference(start);
-    final remaining = duration - elapsed;
-    if (remaining.isNegative) {
+  Future<int> elapsedRealtime() => _elapsedRealtimeProvider();
+
+  Future<Duration> remaining({
+    required int startElapsedMs,
+    required Duration duration,
+  }) async {
+    final nowMs = await elapsedRealtime();
+    final elapsedMs = nowMs - startElapsedMs;
+    final remainingMs = duration.inMilliseconds - elapsedMs;
+    if (remainingMs <= 0) {
       return Duration.zero;
     }
-    return remaining;
+    return Duration(milliseconds: remainingMs);
   }
 
   Stream<Duration> countdownStream({
-    required DateTime start,
+    required int startElapsedMs,
     required Duration duration,
     Duration tick = const Duration(seconds: 1),
   }) async* {
-    while (true) {
-      yield remaining(start: start, duration: duration);
+    var remainingDuration = await remaining(
+      startElapsedMs: startElapsedMs,
+      duration: duration,
+    );
+    yield remainingDuration;
+    while (remainingDuration > Duration.zero) {
       await Future<void>.delayed(tick);
+      remainingDuration = await remaining(
+        startElapsedMs: startElapsedMs,
+        duration: duration,
+      );
+      yield remainingDuration;
     }
   }
 }

@@ -18,7 +18,7 @@ import '../../l10n/app_localizations.dart';
 import '../onboarding/presentation/spotlight_controller.dart';
 import '../onboarding/presentation/spotlight_tour.dart';
 import '../servers/domain/server.dart';
-import '../servers/domain/server_selection.dart';
+import '../servers/domain/server_providers.dart';
 import '../servers/presentation/server_picker_sheet.dart';
 import '../session/domain/session_controller.dart';
 import '../session/domain/session_state.dart';
@@ -118,6 +118,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         SnackBar(content: Text(next.errorMessage!)),
       );
     }
+    if (next.extendRequested && !(previous?.extendRequested ?? false)) {
+      unawaited(
+        ref.read(sessionControllerProvider.notifier).extendSession(context),
+      );
+    }
     if (previous?.status == SessionStatus.connected &&
         next.status == SessionStatus.disconnected) {
       if (next.expired) {
@@ -161,8 +166,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final session = ref.watch(sessionControllerProvider);
     final countdown = ref.watch(sessionCountdownProvider).maybeWhen(
           data: formatCountdown,
-          orElse: () => session.duration != null
-              ? formatCountdown(session.duration!)
+          orElse: () => session.meta != null
+              ? formatCountdown(session.meta!.duration)
               : '60:00',
         );
     final catalog = ref.watch(serverCatalogProvider);
@@ -170,6 +175,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final speedState = ref.watch(speedTestControllerProvider);
     final usageState = ref.watch(dataUsageControllerProvider);
     final theme = Theme.of(context);
+    final servers = catalog.sortedServers;
 
     final statusLabel = _statusLabel(session.status, countdown, l10n);
     final statusColor = _statusColor(session.status);
@@ -281,38 +287,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 12),
           KeyedSubtree(
             key: _serverCarouselKey,
-            child: serversAsync.when(
-              data: (servers) => SizedBox(
-                height: 140,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: servers.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 16),
-                  itemBuilder: (context, index) {
-                    final server = servers[index];
-                    final selected = selectedServer?.id == server.id;
-                    return _ServerCard(
-                      server: server,
-                      selected: selected,
-                      connected: isConnected && selected,
-                      onTap: isConnected
-                          ? null
-                          : () {
-                              unawaited(
-                                  ref.read(hapticsServiceProvider).selection());
-                              ref
-                                  .read(selectedServerProvider.notifier)
-                                  .select(server);
-                            },
-                    );
-                  },
-                ),
-              ),
-              loading: () => const SizedBox(
-                height: 140,
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (_, __) => Text(l10n.failedToLoadServers),
+            child: SizedBox(
+              height: 160,
+              child: servers.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: servers.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 16),
+                      itemBuilder: (context, index) {
+                        final server = servers[index];
+                        final selected = selectedServer?.id == server.id;
+                        return _ServerCard(
+                          server: server,
+                          selected: selected,
+                          connected: isConnected && selected,
+                          latency: catalog.latencyMs[server.id],
+                          onTap: isConnected
+                              ? null
+                              : () {
+                                  unawaited(
+                                      ref.read(hapticsServiceProvider).selection());
+                                  ref
+                                      .read(selectedServerProvider.notifier)
+                                      .select(server);
+                                },
+                        );
+                      },
+                    ),
             ),
           ),
           const SizedBox(height: 32),
@@ -637,10 +639,8 @@ class _ServerCard extends StatelessWidget {
     required this.server,
     required this.selected,
     required this.connected,
-    required this.onTap,
+    this.onTap,
     this.latency,
-    this.favorite = false,
-    this.onFavorite,
   });
 
   final Server server;
@@ -648,8 +648,6 @@ class _ServerCard extends StatelessWidget {
   final bool connected;
   final VoidCallback? onTap;
   final int? latency;
-  final bool favorite;
-  final VoidCallback? onFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -659,10 +657,21 @@ class _ServerCard extends StatelessWidget {
       selected ? theme.colorScheme.secondary : theme.colorScheme.primaryContainer,
       opacity: selected ? 0.22 : 0.12,
     );
-    return GestureDetector(
+    final latencyLabel = latency != null ? '${latency!} ms' : '—';
+    final statusLabel = connected
+        ? l10n.badgeConnected
+        : selected
+            ? l10n.badgeSelected
+            : l10n.badgeConnect;
+    final statusColor = connected
+        ? HiVpnColors.success
+        : theme.colorScheme.onSurface.withOpacity(0.8);
+
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
       child: Container(
-        width: 160,
+        width: 180,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: cardColor,
@@ -676,16 +685,18 @@ class _ServerCard extends StatelessWidget {
           children: [
             Text(
               _flagEmoji(server.countryCode),
-              style: const TextStyle(fontSize: 24),
+              style: const TextStyle(fontSize: 28),
             ),
             const SizedBox(height: 8),
             Text(
               server.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             Text(
-              '${l10n.latencyLabel} -- ms',
+              '${l10n.latencyLabel} $latencyLabel',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
@@ -697,36 +708,18 @@ class _ServerCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: connected
-                      ? HiVpnColors.success.withOpacity(0.2)
-                      : theme.colorScheme.surface.withOpacity(0.4),
+                      ? HiVpnColors.success.withOpacity(0.12)
+                      : theme.colorScheme.surface.withOpacity(0.6),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  connected
-                      ? l10n.badgeConnected
-                      : selected
-                          ? l10n.badgeSelected
-                          : l10n.badgeConnect,
+                  statusLabel,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: connected
-                        ? HiVpnColors.success.withOpacity(0.2)
-                        : theme.colorScheme.surface.withOpacity(0.4),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    connected
-                        ? 'Connected'
-                        : selected
-                            ? 'Selected'
-                            : 'Connect',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: connected
-                          ? HiVpnColors.success
-                          : theme.colorScheme.onSurface.withOpacity(0.8),
-                    ),
+                    color: statusColor,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ],
+              ),
             ),
           ],
         ),
