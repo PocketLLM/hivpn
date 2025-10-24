@@ -17,6 +17,7 @@ import '../../widgets/status_pill.dart';
 import '../../l10n/app_localizations.dart';
 import '../onboarding/presentation/spotlight_controller.dart';
 import '../onboarding/presentation/spotlight_tour.dart';
+import '../history/presentation/history_screen.dart';
 import '../servers/domain/server.dart';
 import '../servers/domain/server_providers.dart';
 import '../servers/presentation/server_picker_sheet.dart';
@@ -150,7 +151,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _buildHomeTab(context, l10n),
                   const SpeedTestScreen(),
-                  const HistoryScreen(),
+                  HistoryScreen(),
                   const SettingsScreen(),
                 ],
               ),

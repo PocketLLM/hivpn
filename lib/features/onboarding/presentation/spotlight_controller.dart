@@ -25,7 +25,10 @@ class SpotlightController {
       },
       onFinish: () => onFinish?.call(),
     );
-    await _coachMark?.show(context: context);
+    final coachMark = _coachMark;
+    if (coachMark != null) {
+      await coachMark.show(context: context);
+    }
   }
 
   void dispose() {
