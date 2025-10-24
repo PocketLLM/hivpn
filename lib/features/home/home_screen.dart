@@ -75,7 +75,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _spotlightController = SpotlightController(
       targets: steps.map((step) => step.toTarget()).toList(),
     );
-    await _spotlightController?.show(
+    _spotlightController?.show(
       context: context,
       onFinish: () => _completeTour(prefs),
       onSkip: () => _completeTour(prefs),

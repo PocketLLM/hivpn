@@ -9,11 +9,11 @@ class SpotlightController {
   final List<TargetFocus> targets;
   TutorialCoachMark? _coachMark;
 
-  Future<void> show({
+  void show({
     required BuildContext context,
     VoidCallback? onFinish,
     VoidCallback? onSkip,
-  }) async {
+  }) {
     final l10n = context.l10n;
     _coachMark = TutorialCoachMark(
       targets: targets,
@@ -26,9 +26,7 @@ class SpotlightController {
       onFinish: () => onFinish?.call(),
     );
     final coachMark = _coachMark;
-    if (coachMark != null) {
-      await coachMark.show(context: context);
-    }
+    coachMark?.show(context: context);
   }
 
   void dispose() {
