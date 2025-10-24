@@ -25,14 +25,6 @@ import com.wireguard.config.Interface
 import com.wireguard.config.Peer
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -45,22 +37,16 @@ class WireGuardService : GoBackend.VpnService() {
     private val powerManager by lazy {
         getSystemService(Context.POWER_SERVICE) as PowerManager
     }
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-
-    private var telemetryJob: Job? = null
-    @Volatile private var telemetry: SessionTelemetry? = null
-
-    private val powerManager: PowerManager by lazy {
-        getSystemService(Context.POWER_SERVICE) as PowerManager
-    }
-
-    private val notificationManager: NotificationManager by lazy {
-        getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private val prefs by lazy {
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
     private val handlerThread = HandlerThread("HiVpnNotification").apply { start() }
     private val updateHandler = Handler(handlerThread.looper)
-    private val updateRunnable = Runnable { updateNotificationInternal(); scheduleNextUpdate() }
+    private val updateRunnable = Runnable {
+        updateNotificationInternal()
+        scheduleNextUpdate()
+    }
 
     private var activeSession: SessionMeta? = null
 
@@ -70,15 +56,14 @@ class WireGuardService : GoBackend.VpnService() {
         createNotificationChannel()
         ensureBackend()
         activeSession = loadPersistedMeta()
+        if (activeSession != null && isConnected.get()) {
+            scheduleNextUpdate(0L)
+        }
     }
 
     override fun onDestroy() {
         updateHandler.removeCallbacksAndMessages(null)
-        if (!isConnected.get()) {
-            handlerThread.quitSafely()
-            backend = null
-            tunnel = null
-        }
+        handlerThread.quitSafely()
         super.onDestroy()
     }
 
@@ -100,7 +85,7 @@ class WireGuardService : GoBackend.VpnService() {
         val connectingNotification = buildNotification(
             title = getString(R.string.app_name) + " — Connecting…",
             timeRemaining = "--:--",
-            ipAddress = "--"
+            ipAddress = "--",
         )
         startForeground(NOTIFICATION_ID, connectingNotification)
 
@@ -111,8 +96,10 @@ class WireGuardService : GoBackend.VpnService() {
             val backendInstance = ensureBackend()
             val tunnelInstance = ensureTunnel(sessionMeta.tunnelName)
             backendInstance.setState(tunnelInstance, Tunnel.State.UP, config)
-            activeSession = sessionMeta.copy(startElapsedMs = sessionMeta.startElapsedMs.takeIf { it > 0 }
-                ?: SystemClock.elapsedRealtime())
+            activeSession = sessionMeta.copy(
+                startElapsedMs = sessionMeta.startElapsedMs.takeIf { it > 0 }
+                    ?: SystemClock.elapsedRealtime(),
+            )
             persistMeta(activeSession)
             lastError = null
             setConnected(true)
@@ -124,26 +111,26 @@ class WireGuardService : GoBackend.VpnService() {
             setConnected(false)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
-            telemetry = null
         } catch (error: Throwable) {
             Log.e(TAG, "Failed to start WireGuard backend", error)
             lastError = error.localizedMessage ?: error::class.java.simpleName
             setConnected(false)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
-            telemetry = null
         }
     }
 
     private fun handleExtend(intent: Intent) {
-        val durationMs = intent.getLongExtra(EXTRA_DURATION_MS, -1L)
-        if (durationMs <= 0) {
-            return
-        }
-        val ip = intent.getStringExtra(EXTRA_PUBLIC_IP)
         val session = activeSession ?: return
-        activeSession = session.copy(durationMs = durationMs, publicIp = ip ?: session.publicIp)
-        persistMeta(activeSession)
+        val durationMs = intent.getLongExtra(EXTRA_DURATION_MS, -1L)
+        val ip = intent.getStringExtra(EXTRA_PUBLIC_IP)
+        val updatedDuration = if (durationMs > 0) durationMs else session.durationMs
+        val updated = session.copy(
+            durationMs = updatedDuration,
+            publicIp = ip?.takeIf { it.isNotBlank() } ?: session.publicIp,
+        )
+        activeSession = updated
+        persistMeta(updated)
         updateNotificationInternal(true)
         scheduleNextUpdate(0L)
     }
@@ -167,115 +154,6 @@ class WireGuardService : GoBackend.VpnService() {
             setConnected(false)
             HiVpnTileService.requestTileUpdate(this)
         }
-    }
-
-    private fun handleExtend(additionalDurationMs: Long, ip: String?) {
-        val current = telemetry ?: return
-        if (additionalDurationMs <= 0 && ip.isNullOrBlank()) {
-            return
-        }
-        val updated = current.extend(additionalDurationMs, ip)
-        startTelemetry(updated)
-    }
-
-    private fun startTelemetry(meta: SessionTelemetry) {
-        telemetry = meta
-        telemetryJob?.cancel()
-        telemetryJob = serviceScope.launch {
-            while (isActive && telemetry != null) {
-                updateNotification(telemetry!!, connected = true)
-                val delayMs = if (powerManager.isInteractive) 1_000L else 15_000L
-                delay(delayMs)
-            }
-        }
-        updateNotification(meta, connected = true)
-    }
-
-    private fun updateNotification(meta: SessionTelemetry, connected: Boolean) {
-        notificationManager.notify(NOTIFICATION_ID, buildNotification(meta, connected))
-    }
-
-    private fun buildNotification(meta: SessionTelemetry, connected: Boolean): Notification {
-        val remainingMs = meta.remainingMs(SystemClock.elapsedRealtime())
-        val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingMs)
-        val seconds = TimeUnit.MILLISECONDS.toSeconds(remainingMs) % 60
-        val timeLeft = String.format(Locale.US, "%02d:%02d", minutes, seconds)
-        val countryName = meta.countryName.ifBlank { meta.serverName }
-        val title = if (connected) {
-            "HiVPN — Connected to ${meta.flagEmoji} $countryName"
-        } else {
-            "HiVPN — Connecting…"
-        }
-        val ipLine = "IP: ${meta.publicIp ?: "--"}"
-
-        val contentIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        val disconnectIntent = PendingIntent.getService(
-            this,
-            1,
-            Intent(this, WireGuardService::class.java).apply { action = ACTION_DISCONNECT },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        val extendIntent = PendingIntent.getActivity(
-            this,
-            2,
-            Intent(this, MainActivity::class.java).apply {
-                action = ACTION_SHOW_EXTEND_AD
-                putExtra(EXTRA_NOTIFICATION_ACTION, ACTION_SHOW_EXTEND_AD)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(title.trim())
-            .setStyle(
-                NotificationCompat.InboxStyle()
-                    .addLine("Time left: $timeLeft")
-                    .addLine(ipLine)
-            )
-            .setContentIntent(contentIntent)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .addAction(
-                R.drawable.notification_icon_background,
-                "Disconnect",
-                disconnectIntent,
-            )
-            .addAction(
-                R.drawable.notification_icon_background,
-                "Extend",
-                extendIntent,
-            )
-            .build()
-    }
-
-    private fun parseTelemetry(configJson: String): SessionTelemetry {
-        val json = JSONObject(configJson)
-        val serverName = json.optString("sessionServerName", json.optString("serverName", json.optString("peerEndpoint", DEFAULT_TUNNEL_NAME)))
-        val countryCode = json.optString("sessionCountryCode", "")
-        val startElapsed = json.optLong("sessionStartElapsedMs", SystemClock.elapsedRealtime())
-        val durationMs = json.optLong("sessionDurationMs", TimeUnit.HOURS.toMillis(1))
-        val serverId = json.optString("sessionServerId", json.optString("serverId", serverName))
-        val ip = json.optString("publicIp", null)
-        return SessionTelemetry(
-            serverId = serverId,
-            serverName = serverName,
-            countryCode = countryCode,
-            startElapsedRealtime = startElapsed,
-            durationMs = durationMs,
-            publicIp = ip?.takeIf { it.isNotBlank() },
-        )
     }
 
     private fun ensureBackend(): GoBackend {
@@ -373,7 +251,7 @@ class WireGuardService : GoBackend.VpnService() {
 
     private fun scheduleNextUpdate(delayOverride: Long? = null) {
         updateHandler.removeCallbacks(updateRunnable)
-        val delay = delayOverride ?: if (powerManager.isInteractive) 1000L else 15_000L
+        val delay = delayOverride ?: if (powerManager.isInteractive) 1_000L else 15_000L
         updateHandler.postDelayed(updateRunnable, delay)
     }
 
@@ -382,8 +260,8 @@ class WireGuardService : GoBackend.VpnService() {
         val now = SystemClock.elapsedRealtime()
         val remaining = session?.let { (it.startElapsedMs + it.durationMs) - now } ?: 0L
         val clamped = remaining.coerceAtLeast(0L)
-        val minutes = (clamped / 1000) / 60
-        val seconds = (clamped / 1000) % 60
+        val minutes = (clamped / 1_000L) / 60L
+        val seconds = (clamped / 1_000L) % 60L
         val remainingLabel = String.format(Locale.US, "%02d:%02d", minutes, seconds)
         val ipLabel = session?.publicIp?.takeIf { it.isNotBlank() } ?: "--"
         val displayName = session?.displayName().orEmpty()
@@ -430,14 +308,14 @@ class WireGuardService : GoBackend.VpnService() {
             .setContentIntent(mainPendingIntent())
             .addAction(
                 NotificationCompat.Action(
-                    R.drawable.notification_icon_background,
+                    android.R.drawable.ic_menu_close_clear_cancel,
                     "Disconnect",
                     disconnectPendingIntent(),
                 ),
             )
             .addAction(
                 NotificationCompat.Action(
-                    R.drawable.notification_icon_background,
+                    android.R.drawable.ic_input_add,
                     "Extend",
                     extendPendingIntent(),
                 ),
@@ -584,6 +462,7 @@ class WireGuardService : GoBackend.VpnService() {
         const val ACTION_DISCONNECT = "com.example.hivpn.vpn.DISCONNECT"
         const val ACTION_EXTEND = "com.example.hivpn.vpn.EXTEND"
         const val EXTRA_CONFIG = "config"
+        const val EXTRA_NOTIFICATION_ACTION = "com.example.hivpn.vpn.EXTRA_NOTIFICATION_ACTION"
         private const val EXTRA_DURATION_MS = "durationMs"
         private const val EXTRA_PUBLIC_IP = "publicIp"
         private const val CHANNEL_ID = "hivpn.tunnel"
@@ -618,7 +497,9 @@ class WireGuardService : GoBackend.VpnService() {
         fun extendSession(context: Context, durationMs: Long, publicIp: String?) {
             val intent = Intent(context, WireGuardService::class.java).apply {
                 action = ACTION_EXTEND
-                putExtra(EXTRA_DURATION_MS, durationMs)
+                if (durationMs > 0) {
+                    putExtra(EXTRA_DURATION_MS, durationMs)
+                }
                 if (!publicIp.isNullOrBlank()) {
                     putExtra(EXTRA_PUBLIC_IP, publicIp)
                 }
