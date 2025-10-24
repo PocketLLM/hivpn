@@ -40,7 +40,16 @@ class SpeedTestService {
 
       timer = Timer.periodic(const Duration(milliseconds: 500), (_) => emit());
 
-      response.data.stream.listen(
+      final body = response.data;
+      if (body == null) {
+        timer?.cancel();
+        stopwatch.stop();
+        controller.addError(StateError('No response body for download stream.'));
+        await controller.close();
+        return;
+      }
+
+      body.stream.listen(
         (chunk) {
           receivedBytes += (chunk as List<int>).length;
         },

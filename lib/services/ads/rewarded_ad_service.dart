@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../../l10n/app_localizations.dart';
+
 class RewardedAdService {
   RewardedAdService();
 
@@ -14,10 +16,10 @@ class RewardedAdService {
     await MobileAds.instance.initialize();
   }
 
-  Future<void> _loadAd() async {
+  Future<void> _loadAd(AppLocalizations l10n) async {
     final completer = Completer<void>();
     RewardedAd.load(
-      adUnitId: RewardedAd.testAdUnitId,
+      adUnitId: _testAdUnitId,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
@@ -25,7 +27,8 @@ class RewardedAdService {
           completer.complete();
         },
         onAdFailedToLoad: (error) {
-          completer.completeError(error);
+          debugPrint('RewardedAd failed to load: $error');
+          completer.completeError(Exception(l10n.adFailedToLoad));
         },
       ),
     );
@@ -38,19 +41,20 @@ class RewardedAdService {
     }
     _unlockCompleter = Completer<void>();
 
+    final l10n = AppLocalizations.of(context);
+
     try {
-      await _loadAd();
+      await _loadAd(l10n);
     } catch (e) {
       _unlockCompleter!
-          .completeError(Exception('Ad failed to load. Please try again.'));
+          .completeError(Exception(l10n.adFailedToLoad));
       _unlockCompleter = null;
       rethrow;
     }
 
     final ad = _loadedAd;
     if (ad == null) {
-      _unlockCompleter!
-          .completeError(Exception('Ad not ready. Please try again.'));
+      _unlockCompleter!.completeError(Exception(l10n.adNotReady));
       _unlockCompleter = null;
       return;
     }
@@ -60,16 +64,17 @@ class RewardedAdService {
         ad.dispose();
         if (!(_unlockCompleter?.isCompleted ?? true)) {
           _unlockCompleter!
-              .completeError(Exception('You must complete the ad to connect.'));
+              .completeError(Exception(l10n.adMustComplete));
         }
         _loadedAd = null;
         _unlockCompleter = null;
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         ad.dispose();
+        debugPrint('RewardedAd failed to show: $error');
         if (!(_unlockCompleter?.isCompleted ?? true)) {
           _unlockCompleter!.completeError(
-            Exception('Ad failed to show. Please try again.'),
+            Exception(l10n.adFailedToShow),
           );
         }
         _loadedAd = null;
@@ -87,8 +92,10 @@ class RewardedAdService {
   }
 }
 
+const _testAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
+
 final rewardedAdServiceProvider = Provider<RewardedAdService>((ref) {
   final service = RewardedAdService();
-  ref.onDispose(service._loadedAd?.dispose);
+  ref.onDispose(() => service._loadedAd?.dispose());
   return service;
 });

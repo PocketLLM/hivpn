@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:characters/characters.dart';
 
 import '../features/servers/domain/server.dart';
+import '../l10n/app_localizations.dart';
 
 class ServerTile extends StatelessWidget {
   const ServerTile({
@@ -19,6 +20,7 @@ class ServerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return ListTile(
       onTap: onTap,
       selected: selected,
@@ -27,7 +29,7 @@ class ServerTile extends StatelessWidget {
         child: Text(_flagEmoji(server.countryCode)),
       ),
       title: Text(server.name),
-      subtitle: Text('Country: ${server.countryCode.toUpperCase()}'),
+      subtitle: Text('${l10n.locations}: ${server.countryCode.toUpperCase()}'),
       trailing: const Icon(Icons.chevron_right),
     );
   }

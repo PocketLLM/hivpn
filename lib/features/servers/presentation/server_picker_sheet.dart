@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +9,7 @@ import '../domain/server_selection.dart';
 import '../../session/domain/session_controller.dart';
 import '../../session/domain/session_status.dart';
 import '../../../widgets/server_tile.dart';
+import '../../../services/haptics/haptics_service.dart';
 
 class ServerPickerSheet extends ConsumerWidget {
   const ServerPickerSheet({super.key});
@@ -29,6 +32,7 @@ class ServerPickerSheet extends ConsumerWidget {
             onTap: isConnected
                 ? null
                 : () {
+                    unawaited(ref.read(hapticsServiceProvider).selection());
                     ref.read(selectedServerProvider.notifier).select(server);
                     Navigator.of(context).pop();
                   },

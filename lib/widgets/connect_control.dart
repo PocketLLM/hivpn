@@ -16,7 +16,7 @@ class ConnectControl extends StatefulWidget {
   });
 
   final bool enabled;
-  final VoidCallback? onTap;
+  final Future<void> Function()? onTap;
   final String label;
   final bool isActive;
   final bool isLoading;
@@ -103,7 +103,11 @@ class _ConnectControlState extends State<ConnectControl>
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(160),
-                onTap: isDisabled ? null : widget.onTap,
+                onTap: isDisabled
+                    ? null
+                    : () async {
+                        await widget.onTap?.call();
+                      },
                 child: Container(
                   width: size - 28,
                   height: size - 28,
