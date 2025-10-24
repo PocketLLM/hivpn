@@ -1,6 +1,8 @@
 import 'package:equatable/equatable.dart';
 
 class PreferencesState extends Equatable {
+  static const Object _sentinel = Object();
+
   const PreferencesState({
     this.autoServerSwitch = true,
     this.hapticsEnabled = true,
@@ -14,12 +16,13 @@ class PreferencesState extends Equatable {
   PreferencesState copyWith({
     bool? autoServerSwitch,
     bool? hapticsEnabled,
-    String? localeCode,
+    Object? localeCode = _sentinel,
   }) {
     return PreferencesState(
       autoServerSwitch: autoServerSwitch ?? this.autoServerSwitch,
       hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
-      localeCode: localeCode ?? this.localeCode,
+      localeCode:
+          identical(localeCode, _sentinel) ? this.localeCode : localeCode as String?,
     );
   }
 

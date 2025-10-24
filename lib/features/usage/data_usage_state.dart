@@ -1,6 +1,8 @@
 import 'package:equatable/equatable.dart';
 
 class DataUsageState extends Equatable {
+  static const Object _sentinel = Object();
+
   const DataUsageState({
     required this.periodStart,
     this.usedBytes = 0,
@@ -34,13 +36,15 @@ class DataUsageState extends Equatable {
   DataUsageState copyWith({
     DateTime? periodStart,
     int? usedBytes,
-    int? monthlyLimitBytes,
+    Object? monthlyLimitBytes = _sentinel,
     DateTime? lastUpdated,
   }) {
     return DataUsageState(
       periodStart: periodStart ?? this.periodStart,
       usedBytes: usedBytes ?? this.usedBytes,
-      monthlyLimitBytes: monthlyLimitBytes ?? this.monthlyLimitBytes,
+      monthlyLimitBytes: identical(monthlyLimitBytes, _sentinel)
+          ? this.monthlyLimitBytes
+          : monthlyLimitBytes as int?,
       lastUpdated: lastUpdated ?? this.lastUpdated,
     );
   }
