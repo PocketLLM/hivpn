@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:characters/characters.dart';
+
 import '../features/servers/domain/server.dart';
 
 class ServerTile extends StatelessWidget {
@@ -22,11 +24,19 @@ class ServerTile extends StatelessWidget {
       selected: selected,
       leading: CircleAvatar(
         backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
-        child: Text(server.countryCode.toUpperCase()),
+        child: Text(_flagEmoji(server.countryCode)),
       ),
       title: Text(server.name),
       subtitle: Text('Country: ${server.countryCode.toUpperCase()}'),
       trailing: const Icon(Icons.chevron_right),
     );
+  }
+
+  String _flagEmoji(String countryCode) {
+    const base = 0x1F1E6;
+    return countryCode.toUpperCase().characters.map((char) {
+      final codeUnit = char.codeUnitAt(0) - 0x41 + base;
+      return String.fromCharCode(codeUnit);
+    }).join();
   }
 }

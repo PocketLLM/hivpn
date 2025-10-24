@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'colors.dart';
 
@@ -17,15 +18,18 @@ ThemeData buildHiVpnTheme() {
     onError: HiVpnColors.onPrimary,
   );
 
+  final textTheme = GoogleFonts.interTextTheme(
+    ThemeData.dark().textTheme,
+  ).apply(
+    bodyColor: colorScheme.onSurface,
+    displayColor: colorScheme.onSurface,
+  );
+
   return ThemeData(
     colorScheme: colorScheme,
     useMaterial3: true,
     scaffoldBackgroundColor: colorScheme.background,
-    textTheme: Typography.whiteMountainView.apply(
-      bodyColor: colorScheme.onSurface,
-      displayColor: colorScheme.onSurface,
-      fontFamily: 'Inter',
-    ),
+    textTheme: textTheme,
     appBarTheme: const AppBarTheme(
       backgroundColor: Color(0xFF1A2140),
       foregroundColor: HiVpnColors.onSurface,
@@ -58,4 +62,15 @@ ThemeData buildHiVpnTheme() {
       ),
     ),
   );
+}
+
+extension HiVpnThemeX on ThemeData {
+  Color get elevatedSurface => Color.alphaBlend(
+        colorScheme.onSurface.withOpacity(0.08),
+        colorScheme.surface,
+      );
+
+  Color pastelCard(Color accent, {double opacity = 0.18}) {
+    return Color.alphaBlend(accent.withOpacity(opacity), colorScheme.surface);
+  }
 }

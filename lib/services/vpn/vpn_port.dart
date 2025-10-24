@@ -5,4 +5,5 @@ abstract class VpnPort {
   Future<bool> connect(WgConfig config);
   Future<void> disconnect();
   Future<bool> isConnected();
+  Future<Map<String, dynamic>> getTunnelStats();
 }

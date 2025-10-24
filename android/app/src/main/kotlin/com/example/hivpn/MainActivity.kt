@@ -34,6 +34,7 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                     "isConnected" -> result.success(WireGuardService.isActive())
+                    "getTunnelStats" -> result.success(WireGuardService.currentStats())
                     else -> result.notImplemented()
                 }
             }

@@ -16,10 +16,12 @@ lib/
     onboarding/       # Spotlight tour (tutorial_coach_mark)
     servers/          # Server models and asset repository
     session/          # Session domain, countdown, controller
+    speedtest/        # Speed test controller, UI, and endpoints loader
   widgets/            # Shared UI components
 assets/
   servers.json        # Static server catalogue
   reference/          # Visual reference material from design
+  speedtest_endpoints.json # Download/upload/ping configuration
 ```
 
 All business logic lives in controllers and services. Widgets receive the data they need from Riverpod providers.
@@ -70,7 +72,15 @@ Manual disconnects stop the tunnel immediately; remaining time is discarded.
 
 ## Guided spotlight tour
 
-The first launch shows a four-step overlay (servers, connect button, status pill, persistent notification reminder). It uses `tutorial_coach_mark` and only runs once per install (`tour_done` preference). A hidden developer utility can reset the flag by clearing app storage.
+The first launch shows a four-step overlay (server carousel, connect control, status pill, Speed Test tab). It uses `tutorial_coach_mark` and only runs once per install (`tour_done` preference). A hidden developer utility can reset the flag by clearing app storage.
+
+## Speed Test
+
+The second tab runs latency, download, and upload checks using the endpoints defined in `assets/speedtest_endpoints.json`. `SpeedTestService` streams rolling throughput samples every 500 ms and surfaces the smoothed five-sample average in the gauge UI. Results persist locally so users see their last run immediately after relaunching. Update the endpoint list or IP resolver URL as needed for your infrastructure.
+
+## Foreground notification
+
+The Android foreground service posts updates on channel `hivpn.tunnel` with a live countdown, country flag, and actions to disconnect or extend (by returning to the app for a fresh ad). Capture a device screenshot of the notification on your QA build and place it under `assets/reference/` for documentation parity.
 
 ## Assets and branding
 

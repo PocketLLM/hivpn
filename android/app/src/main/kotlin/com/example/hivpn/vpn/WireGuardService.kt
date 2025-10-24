@@ -43,12 +43,22 @@ class WireGuardService : android.net.VpnService() {
         startForeground(NOTIFICATION_ID, notification)
         // TODO: integrate actual WireGuard backend.
         isConnected = true
+        stats["state"] = "connected"
+        stats["startedAt"] = System.currentTimeMillis()
         updateNotification("Connected")
     }
 
     private fun handleDisconnect() {
-        if (!isConnected) return
+        if (!isConnected) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            stats.clear()
+            stats["state"] = "idle"
+            return
+        }
         isConnected = false
+        stats.clear()
+        stats["state"] = "idle"
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -98,6 +108,18 @@ class WireGuardService : android.net.VpnService() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
             )
+            .addAction(
+                R.drawable.notification_icon_background,
+                "Extend",
+                PendingIntent.getActivity(
+                    this,
+                    2,
+                    Intent(this, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    },
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            )
             .build()
     }
 
@@ -112,6 +134,10 @@ class WireGuardService : android.net.VpnService() {
         @Volatile
         private var isConnected: Boolean = false
 
+        private val stats: MutableMap<String, Any> = mutableMapOf(
+            "state" to "idle"
+        )
+
         fun requestConnect(context: Context, config: String) {
             val intent = Intent(context, WireGuardService::class.java).apply {
                 action = ACTION_CONNECT
@@ -121,6 +147,10 @@ class WireGuardService : android.net.VpnService() {
         }
 
         fun requestDisconnect(context: Context) {
+            if (!isConnected) {
+                context.stopService(Intent(context, WireGuardService::class.java))
+                return
+            }
             val intent = Intent(context, WireGuardService::class.java).apply {
                 action = ACTION_DISCONNECT
             }
@@ -128,5 +158,7 @@ class WireGuardService : android.net.VpnService() {
         }
 
         fun isActive(): Boolean = isConnected
+
+        fun currentStats(): Map<String, Any> = HashMap(stats)
     }
 }
