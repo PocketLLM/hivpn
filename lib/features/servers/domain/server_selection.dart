@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'package:collection/collection.dart';
+import 'package:hivpn/core/utils/iterable_extensions.dart';
 
 import '../data/server_preferences_repository.dart';
 import 'server.dart';

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -99,8 +101,11 @@ class _ServerList extends StatelessWidget {
           selected: selectedServer?.id == server.id,
           latencyMs: catalog.latencyMs[server.id],
           isFavorite: catalog.favorites.contains(server.id),
-          onFavoriteToggle: () =>
+          onFavoriteToggle: () {
+            unawaited(
               ref.read(serverCatalogProvider.notifier).toggleFavorite(server),
+            );
+          },
           onTap: isConnected
               ? null
               : () {

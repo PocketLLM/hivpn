@@ -17,7 +17,7 @@ class RewardedAdService {
   Future<void> _loadAd() async {
     final completer = Completer<void>();
     RewardedAd.load(
-      adUnitId: RewardedAd.testAdUnitId,
+      adUnitId: 'ca-app-pub-3940256099942544/5224354917',
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
@@ -89,6 +89,6 @@ class RewardedAdService {
 
 final rewardedAdServiceProvider = Provider<RewardedAdService>((ref) {
   final service = RewardedAdService();
-  ref.onDispose(service._loadedAd?.dispose);
+  ref.onDispose(() => service._loadedAd?.dispose());
   return service;
 });

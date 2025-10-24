@@ -1,4 +1,4 @@
-import 'package:collection/collection.dart';
+import 'package:hivpn/core/utils/iterable_extensions.dart';
 
 enum VpnProtocol { wireGuard, openVpn, ikev2 }
 

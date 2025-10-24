@@ -26,6 +26,14 @@ class SpeedTestService {
         endpoint,
         options: Options(responseType: ResponseType.stream, followRedirects: true),
       );
+      final body = response.data;
+      if (body == null) {
+        if (!controller.isClosed) {
+          controller.addError(StateError('No response body for download stream'));
+        }
+        await controller.close();
+        return;
+      }
       final stopwatch = Stopwatch()..start();
       int receivedBytes = 0;
       Timer? timer;
@@ -40,7 +48,7 @@ class SpeedTestService {
 
       timer = Timer.periodic(const Duration(milliseconds: 500), (_) => emit());
 
-      response.data.stream.listen(
+      body.stream.listen(
         (chunk) {
           receivedBytes += (chunk as List<int>).length;
         },

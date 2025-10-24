@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hivpn/core/utils/iterable_extensions.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../services/ads/rewarded_ad_service.dart';

@@ -13,14 +13,13 @@ class SpotlightController {
     VoidCallback? onSkip,
   }) async {
     _coachMark = TutorialCoachMark(
-      context,
       targets: targets,
       colorShadow: Colors.black87,
       textSkip: 'Skip',
       onSkip: () => onSkip?.call(),
       onFinish: () => onFinish?.call(),
     );
-    await _coachMark?.show(context: context);
+    await _coachMark?.show(context);
   }
 
   void dispose() {
