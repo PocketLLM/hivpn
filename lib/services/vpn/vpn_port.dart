@@ -6,4 +6,5 @@ abstract class VpnPort {
   Future<void> disconnect();
   Future<bool> isConnected();
   Future<Map<String, dynamic>> getTunnelStats();
+  Future<void> extendSession(Duration duration, {String? publicIp});
 }

@@ -17,10 +17,15 @@ class SessionState with _$SessionState {
       toJson: _durationToJson,
     )
     Duration? duration,
+    int? startElapsedMs,
     String? serverId,
+    String? serverName,
+    String? countryCode,
+    String? publicIp,
     String? errorMessage,
     @JsonKey(ignore: true) WgConfig? config,
     @Default(false) bool expired,
+    @Default(false) bool locked,
   }) = _SessionState;
 
   factory SessionState.initial() =>

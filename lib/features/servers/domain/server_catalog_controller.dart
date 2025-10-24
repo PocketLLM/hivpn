@@ -13,12 +13,16 @@ class ServerCatalogState {
     this.favorites = const <String>{},
     this.latencyMs = const {},
     this.query = '',
+    this.isLoading = true,
+    this.error,
   });
 
   final List<Server> servers;
   final Set<String> favorites;
   final Map<String, int> latencyMs;
   final String query;
+  final bool isLoading;
+  final String? error;
 
   List<Server> get sortedServers {
     final comparator = (Server a, Server b) {
@@ -51,12 +55,16 @@ class ServerCatalogState {
     Set<String>? favorites,
     Map<String, int>? latencyMs,
     String? query,
+    bool? isLoading,
+    String? error,
   }) {
     return ServerCatalogState(
       servers: servers ?? this.servers,
       favorites: favorites ?? this.favorites,
       latencyMs: latencyMs ?? this.latencyMs,
       query: query ?? this.query,
+      isLoading: isLoading ?? this.isLoading,
+      error: error ?? this.error,
     );
   }
 }
@@ -71,17 +79,32 @@ class ServerCatalogController extends StateNotifier<ServerCatalogState> {
   Timer? _latencyTimer;
 
   Future<void> _init() async {
-    final servers = await _ref.read(serverRepositoryProvider).loadServers();
-    final prefs = _ref.read(serverPreferencesRepositoryProvider);
-    final favorites = prefs?.loadFavorites() ?? <String>{};
-    state = state.copyWith(servers: servers, favorites: favorites);
-    _measureLatency();
-    _latencyTimer = Timer.periodic(const Duration(minutes: 5), (_) {
-      _measureLatency();
-    });
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final servers = await _ref.read(serverRepositoryProvider).loadServers();
+      final prefs = _ref.read(serverPreferencesRepositoryProvider);
+      final favorites = prefs?.loadFavorites() ?? <String>{};
+      state = state.copyWith(
+        servers: servers,
+        favorites: favorites,
+        isLoading: false,
+      );
+      await _measureLatency();
+      _latencyTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+        unawaited(_measureLatency());
+      });
+    } catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        error: error.toString(),
+      );
+    }
   }
 
   Future<void> _measureLatency() async {
+    if (state.servers.isEmpty) {
+      return;
+    }
     final results = <String, int>{};
     for (final server in state.servers) {
       try {
@@ -135,12 +158,3 @@ class ServerCatalogController extends StateNotifier<ServerCatalogState> {
     super.dispose();
   }
 }
-
-final serverCatalogProvider =
-    StateNotifierProvider<ServerCatalogController, ServerCatalogState>((ref) {
-  return ServerCatalogController(ref);
-});
-
-final serverLatencyProvider = Provider<Map<String, int>>((ref) {
-  return ref.watch(serverCatalogProvider).latencyMs;
-});

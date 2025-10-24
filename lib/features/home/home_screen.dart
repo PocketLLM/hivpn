@@ -18,7 +18,7 @@ import '../../l10n/app_localizations.dart';
 import '../onboarding/presentation/spotlight_controller.dart';
 import '../onboarding/presentation/spotlight_tour.dart';
 import '../servers/domain/server.dart';
-import '../servers/domain/server_selection.dart';
+import '../servers/domain/server_providers.dart';
 import '../servers/presentation/server_picker_sheet.dart';
 import '../session/domain/session_controller.dart';
 import '../session/domain/session_state.dart';
@@ -75,7 +75,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       targets: steps.map((step) => step.toTarget()).toList(),
     );
     await _spotlightController?.show(
-      context,
+      context: context,
       onFinish: () => _completeTour(prefs),
       onSkip: () => _completeTour(prefs),
     );
@@ -167,6 +167,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
     final catalog = ref.watch(serverCatalogProvider);
     final selectedServer = ref.watch(selectedServerProvider);
+    final serversAsyncValue = ref.watch(serversAsync);
     final speedState = ref.watch(speedTestControllerProvider);
     final usageState = ref.watch(dataUsageControllerProvider);
     final theme = Theme.of(context);
@@ -281,7 +282,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 12),
           KeyedSubtree(
             key: _serverCarouselKey,
-            child: serversAsync.when(
+            child: serversAsyncValue.when(
               data: (servers) => SizedBox(
                 height: 140,
                 child: ListView.separated(
@@ -291,6 +292,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   itemBuilder: (context, index) {
                     final server = servers[index];
                     final selected = selectedServer?.id == server.id;
+                    final latency = catalog.latencyMs[server.id];
                     return _ServerCard(
                       server: server,
                       selected: selected,
@@ -304,6 +306,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   .read(selectedServerProvider.notifier)
                                   .select(server);
                             },
+                      latency: latency,
                     );
                   },
                 ),
@@ -312,7 +315,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 height: 140,
                 child: Center(child: CircularProgressIndicator()),
               ),
-              error: (_, __) => Text(l10n.failedToLoadServers),
+              error: (error, __) => Text('${l10n.failedToLoadServers}: $error'),
             ),
           ),
           const SizedBox(height: 32),
@@ -639,8 +642,6 @@ class _ServerCard extends StatelessWidget {
     required this.connected,
     required this.onTap,
     this.latency,
-    this.favorite = false,
-    this.onFavorite,
   });
 
   final Server server;
@@ -648,8 +649,6 @@ class _ServerCard extends StatelessWidget {
   final bool connected;
   final VoidCallback? onTap;
   final int? latency;
-  final bool favorite;
-  final VoidCallback? onFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -659,7 +658,18 @@ class _ServerCard extends StatelessWidget {
       selected ? theme.colorScheme.secondary : theme.colorScheme.primaryContainer,
       opacity: selected ? 0.22 : 0.12,
     );
-    return GestureDetector(
+    final statusLabel = connected
+        ? l10n.badgeConnected
+        : selected
+            ? l10n.badgeSelected
+            : l10n.badgeConnect;
+    final statusColor = connected
+        ? HiVpnColors.success
+        : theme.colorScheme.onSurface.withOpacity(0.85);
+    final latencyText = latency != null ? '${latency!} ms' : '--';
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
       onTap: onTap,
       child: Container(
         width: 160,
@@ -668,7 +678,9 @@ class _ServerCard extends StatelessWidget {
           color: cardColor,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: selected ? theme.colorScheme.secondary : Colors.white10,
+            color: selected
+                ? theme.colorScheme.secondary
+                : theme.colorScheme.onSurface.withOpacity(0.08),
           ),
         ),
         child: Column(
@@ -681,52 +693,36 @@ class _ServerCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               server.name,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
-              '${l10n.latencyLabel} -- ms',
+              '${l10n.latencyLabel}: $latencyText',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
             const Spacer(),
             Align(
-              alignment: Alignment.bottomRight,
+              alignment: Alignment.bottomLeft,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: connected
-                      ? HiVpnColors.success.withOpacity(0.2)
-                      : theme.colorScheme.surface.withOpacity(0.4),
+                  color: statusColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  connected
-                      ? l10n.badgeConnected
-                      : selected
-                          ? l10n.badgeSelected
-                          : l10n.badgeConnect,
+                  statusLabel,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: connected
-                        ? HiVpnColors.success.withOpacity(0.2)
-                        : theme.colorScheme.surface.withOpacity(0.4),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    connected
-                        ? 'Connected'
-                        : selected
-                            ? 'Selected'
-                            : 'Connect',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: connected
-                          ? HiVpnColors.success
-                          : theme.colorScheme.onSurface.withOpacity(0.8),
-                    ),
+                    fontWeight: FontWeight.w600,
+                    color: statusColor,
                   ),
                 ),
-              ],
+              ),
             ),
           ],
         ),

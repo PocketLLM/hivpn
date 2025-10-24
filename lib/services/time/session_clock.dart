@@ -1,13 +1,32 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
+
 class SessionClock {
-  const SessionClock();
+  SessionClock({MethodChannel? channel})
+      : _channel = channel ?? const MethodChannel('com.example.vpn/VpnChannel');
 
-  DateTime now() => DateTime.now().toUtc();
+  final MethodChannel _channel;
 
-  Duration remaining({required DateTime start, required Duration duration}) {
-    final elapsed = now().difference(start);
-    final remaining = duration - elapsed;
+  Future<int> elapsedRealtime() async {
+    try {
+      final result = await _channel.invokeMethod<int>('elapsedRealtime');
+      if (result != null) {
+        return result;
+      }
+    } catch (_) {
+      // ignore and fall through to wall clock fallback
+    }
+    return DateTime.now().millisecondsSinceEpoch;
+  }
+
+  Future<Duration> remaining({
+    required int startElapsedMs,
+    required Duration duration,
+  }) async {
+    final now = await elapsedRealtime();
+    final elapsedMs = now - startElapsedMs;
+    final remaining = duration - Duration(milliseconds: elapsedMs);
     if (remaining.isNegative) {
       return Duration.zero;
     }
@@ -15,12 +34,12 @@ class SessionClock {
   }
 
   Stream<Duration> countdownStream({
-    required DateTime start,
+    required int startElapsedMs,
     required Duration duration,
     Duration tick = const Duration(seconds: 1),
   }) async* {
     while (true) {
-      yield remaining(start: start, duration: duration);
+      yield await remaining(startElapsedMs: startElapsedMs, duration: duration);
       await Future<void>.delayed(tick);
     }
   }

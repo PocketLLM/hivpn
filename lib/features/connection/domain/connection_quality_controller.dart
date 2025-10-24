@@ -3,14 +3,13 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../servers/domain/server.dart';
-import '../../servers/domain/server_selection.dart';
+import '../../servers/domain/server_providers.dart';
 import '../../session/domain/session_controller.dart';
 import '../../session/domain/session_state.dart';
 import '../../session/domain/session_status.dart';
 import '../../settings/domain/preferences_controller.dart';
 import '../../speedtest/domain/speedtest_controller.dart';
 import '../../speedtest/domain/speedtest_state.dart';
-import '../../servers/data/server_repository.dart';
 import 'connection_quality.dart';
 import 'connection_quality_state.dart';
 
@@ -92,7 +91,7 @@ class ConnectionQualityController
       return;
     }
 
-    final servers = await _ref.read(serversProvider.future);
+    final servers = _ref.read(serversProvider);
     if (servers.isEmpty) {
       return;
     }
@@ -103,16 +102,11 @@ class ConnectionQualityController
     }
 
     state = state.copyWith(isSwitching: true);
-    _ref.read(selectedServerProvider.notifier).select(target);
-    try {
-      await _ref.read(sessionControllerProvider.notifier).switchServer(target);
-      state = state.copyWith(
-        lastSwitch: DateTime.now(),
-        isSwitching: false,
-      );
-    } catch (_) {
-      state = state.copyWith(isSwitching: false);
-    }
+    await _ref.read(sessionControllerProvider.notifier).switchServer(target);
+    state = state.copyWith(
+      lastSwitch: DateTime.now(),
+      isSwitching: false,
+    );
   }
 
   Server? _chooseNextServer(List<Server> servers, Server? current) {

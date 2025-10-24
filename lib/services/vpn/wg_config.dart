@@ -18,6 +18,12 @@ class WgConfig {
     this.connectOnAppLaunch = false,
     this.connectOnBoot = false,
     this.reconnectOnNetworkChange = false,
+    this.serverId,
+    this.serverName,
+    this.countryCode,
+    this.publicIp,
+    this.sessionStartElapsedMs,
+    this.sessionDurationMs,
   });
 
   final String interfacePrivateKey;
@@ -36,6 +42,12 @@ class WgConfig {
   final bool connectOnAppLaunch;
   final bool connectOnBoot;
   final bool reconnectOnNetworkChange;
+  final String? serverId;
+  final String? serverName;
+  final String? countryCode;
+  final String? publicIp;
+  final int? sessionStartElapsedMs;
+  final int? sessionDurationMs;
 
   WgConfig copyWith({
     String? interfacePrivateKey,
@@ -54,6 +66,12 @@ class WgConfig {
     bool? connectOnAppLaunch,
     bool? connectOnBoot,
     bool? reconnectOnNetworkChange,
+    String? serverId,
+    String? serverName,
+    String? countryCode,
+    String? publicIp,
+    int? sessionStartElapsedMs,
+    int? sessionDurationMs,
   }) {
     return WgConfig(
       interfacePrivateKey: interfacePrivateKey ?? this.interfacePrivateKey,
@@ -74,6 +92,13 @@ class WgConfig {
       connectOnBoot: connectOnBoot ?? this.connectOnBoot,
       reconnectOnNetworkChange:
           reconnectOnNetworkChange ?? this.reconnectOnNetworkChange,
+      serverId: serverId ?? this.serverId,
+      serverName: serverName ?? this.serverName,
+      countryCode: countryCode ?? this.countryCode,
+      publicIp: publicIp ?? this.publicIp,
+      sessionStartElapsedMs:
+          sessionStartElapsedMs ?? this.sessionStartElapsedMs,
+      sessionDurationMs: sessionDurationMs ?? this.sessionDurationMs,
     );
   }
 
@@ -95,6 +120,12 @@ class WgConfig {
       'connectOnAppLaunch': connectOnAppLaunch,
       'connectOnBoot': connectOnBoot,
       'reconnectOnNetworkChange': reconnectOnNetworkChange,
+      'serverId': serverId,
+      'serverName': serverName,
+      'countryCode': countryCode,
+      'publicIp': publicIp,
+      'sessionStartElapsedMs': sessionStartElapsedMs,
+      'sessionDurationMs': sessionDurationMs,
     };
   }
 
@@ -124,6 +155,12 @@ class WgConfig {
       connectOnBoot: json['connectOnBoot'] as bool? ?? false,
       reconnectOnNetworkChange:
           json['reconnectOnNetworkChange'] as bool? ?? false,
+      serverId: json['serverId'] as String?,
+      serverName: json['serverName'] as String?,
+      countryCode: json['countryCode'] as String?,
+      publicIp: json['publicIp'] as String?,
+      sessionStartElapsedMs: (json['sessionStartElapsedMs'] as num?)?.toInt(),
+      sessionDurationMs: (json['sessionDurationMs'] as num?)?.toInt(),
     );
   }
 

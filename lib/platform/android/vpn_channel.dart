@@ -40,4 +40,12 @@ class AndroidVpnChannel implements VpnPort {
     final result = await _channel.invokeMapMethod<String, dynamic>('getTunnelStats');
     return result ?? <String, dynamic>{};
   }
+
+  @override
+  Future<void> extendSession(Duration duration, {String? publicIp}) async {
+    await _channel.invokeMethod<void>('extendSession', {
+      'durationMs': duration.inMilliseconds,
+      if (publicIp != null) 'publicIp': publicIp,
+    });
+  }
 }
