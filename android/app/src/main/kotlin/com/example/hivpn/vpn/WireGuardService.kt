@@ -84,8 +84,8 @@ class WireGuardService : GoBackend.VpnService() {
     private fun handleConnect(configJson: String) {
         val connectingNotification = buildNotification(
             title = getString(R.string.app_name) + " — Connecting…",
-            timeRemaining = "--:--",
-            ipAddress = "--",
+            timeRemaining = getString(R.string.notification_time_left, "--:--"),
+            ipAddress = getString(R.string.notification_ip, "--"),
         )
         startForeground(NOTIFICATION_ID, connectingNotification)
 
@@ -263,7 +263,9 @@ class WireGuardService : GoBackend.VpnService() {
         val minutes = (clamped / 1_000L) / 60L
         val seconds = (clamped / 1_000L) % 60L
         val remainingLabel = String.format(Locale.US, "%02d:%02d", minutes, seconds)
+        val remainingDisplay = getString(R.string.notification_time_left, remainingLabel)
         val ipLabel = session?.publicIp?.takeIf { it.isNotBlank() } ?: "--"
+        val ipDisplay = getString(R.string.notification_ip, ipLabel)
         val displayName = session?.displayName().orEmpty()
         val title = if (session != null && isConnected.get()) {
             if (displayName.isNotBlank()) {
@@ -276,8 +278,8 @@ class WireGuardService : GoBackend.VpnService() {
         }
         val notification = buildNotification(
             title = title,
-            timeRemaining = remainingLabel,
-            ipAddress = ipLabel,
+            timeRemaining = remainingDisplay,
+            ipAddress = ipDisplay,
         )
         if (force) {
             notificationManager.notify(NOTIFICATION_ID, notification)
@@ -294,11 +296,11 @@ class WireGuardService : GoBackend.VpnService() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
-            .setContentText("Time left: $timeRemaining")
+            .setContentText(timeRemaining)
             .setStyle(
                 NotificationCompat.InboxStyle()
-                    .addLine("Time left: $timeRemaining")
-                    .addLine("IP: $ipAddress")
+                    .addLine(timeRemaining)
+                    .addLine(ipAddress)
             )
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -309,14 +311,14 @@ class WireGuardService : GoBackend.VpnService() {
             .addAction(
                 NotificationCompat.Action(
                     android.R.drawable.ic_menu_close_clear_cancel,
-                    "Disconnect",
+                    getString(R.string.notification_disconnect),
                     disconnectPendingIntent(),
                 ),
             )
             .addAction(
                 NotificationCompat.Action(
                     android.R.drawable.ic_input_add,
-                    "Extend",
+                    getString(R.string.notification_extend),
                     extendPendingIntent(),
                 ),
             )
@@ -377,14 +379,9 @@ class WireGuardService : GoBackend.VpnService() {
     }
 
     private class ServiceTunnel(private val label: String) : Tunnel {
-        @Volatile private var state: Tunnel.State = Tunnel.State.DOWN
-
         override fun getName(): String = label
 
-        override fun getState(): Tunnel.State = state
-
         override fun onStateChange(newState: Tunnel.State) {
-            state = newState
             setConnected(newState == Tunnel.State.UP)
         }
     }

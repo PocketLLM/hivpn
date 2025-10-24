@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">HiVPN</string>
+    <string name="notification_disconnect">Disconnect</string>
+    <string name="notification_extend">Extend</string>
+    <string name="notification_time_left">Time left: %1$s</string>
+    <string name="notification_ip">IP: %1$s</string>
+</resources>
