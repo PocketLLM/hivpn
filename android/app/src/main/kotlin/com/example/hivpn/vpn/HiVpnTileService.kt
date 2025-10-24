@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import com.example.hivpn.MainActivity
 
 class HiVpnTileService : TileService() {
     override fun onStartListening() {
@@ -17,10 +18,12 @@ class HiVpnTileService : TileService() {
         if (WireGuardService.isActive()) {
             WireGuardService.requestDisconnect(this)
         } else {
-            val config = WireGuardService.lastConfig(this)
-            if (config.isNotEmpty() && config != "{}") {
-                WireGuardService.requestConnect(this, config)
+            val launch = Intent(this, MainActivity::class.java).apply {
+                action = Intent.ACTION_MAIN
+                addCategory(Intent.CATEGORY_LAUNCHER)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
             }
+            startActivityAndCollapse(launch)
         }
         refreshTile()
     }

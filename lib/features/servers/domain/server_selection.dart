@@ -6,26 +6,31 @@ import 'server.dart';
 import 'server_catalog_controller.dart';
 
 class ServerSelectionNotifier extends StateNotifier<Server?> {
-  ServerSelectionNotifier(this._ref)
-      : super(null) {
-    _subscription = _ref.listen(serverCatalogProvider, (prev, next) {
+  ServerSelectionNotifier(
+    this._ref,
+    this._catalogProvider,
+  ) : super(null) {
+    _subscription =
+        _ref.listen<ServerCatalogState>(_catalogProvider, (prev, next) {
       _onCatalogUpdated(next);
     });
     _hydrate();
   }
 
   final Ref _ref;
+  final StateNotifierProvider<ServerCatalogController, ServerCatalogState>
+      _catalogProvider;
   ProviderSubscription<ServerCatalogState>? _subscription;
 
   void select(Server server) {
     state = server;
     _ref
-        .read(serverCatalogProvider.notifier)
+        .read(_catalogProvider.notifier)
         .rememberSelection(server);
   }
 
   Future<void> _hydrate() async {
-    final catalog = _ref.read(serverCatalogProvider);
+    final catalog = _ref.read(_catalogProvider);
     final prefs = _ref.read(serverPreferencesRepositoryProvider);
     final lastId = prefs?.loadLastServerId();
     if (catalog.servers.isEmpty) {
@@ -62,8 +67,3 @@ class ServerSelectionNotifier extends StateNotifier<Server?> {
     super.dispose();
   }
 }
-
-final selectedServerProvider =
-    StateNotifierProvider<ServerSelectionNotifier, Server?>((ref) {
-  return ServerSelectionNotifier(ref);
-});

@@ -4,9 +4,9 @@ import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hivpn/core/utils/iterable_extensions.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/utils/iterable_extensions.dart';
 import '../../../services/ads/rewarded_ad_service.dart';
 import '../../../services/storage/prefs.dart';
 import '../../../services/storage/secure_store_provider.dart';
@@ -17,9 +17,12 @@ import '../../../services/vpn/vpn_provider.dart';
 import '../../../services/vpn/wg_config.dart';
 import '../../usage/data_usage_controller.dart';
 import '../../servers/domain/server.dart';
-import '../../servers/domain/server_catalog_controller.dart';
+import '../../servers/domain/server_providers.dart';
 import 'session_state.dart';
 import 'session_status.dart';
+import 'session_meta.dart';
+import '../../speedtest/domain/speedtest_controller.dart';
+import '../../speedtest/domain/speedtest_state.dart';
 
 const _privateKeyStorageKey = 'wg_private_key';
 const _sessionPrefsKey = 'active_session';
@@ -33,6 +36,8 @@ class SessionController extends StateNotifier<SessionState> {
         _clock = _ref.read(sessionClockProvider),
         _settings = _ref.read(settingsControllerProvider.notifier),
         super(SessionState.initial()) {
+    _speedSubscription =
+        _ref.listen<SpeedTestState>(speedTestControllerProvider, _onSpeedUpdate);
     _bootstrap();
   }
 
@@ -46,12 +51,33 @@ class SessionController extends StateNotifier<SessionState> {
   int _reconnectAttempts = 0;
   bool _pendingAutoConnect = false;
   int _tickCounter = 0;
+  SessionMeta? _activeMeta;
+  Server? _queuedServer;
+  late final ProviderSubscription<SpeedTestState> _speedSubscription;
 
   Future<void> _bootstrap() async {
     await _adService.initialize();
     await _restoreSession();
     _startTicker();
     _pendingAutoConnect = true;
+  }
+
+  void _onSpeedUpdate(SpeedTestState? previous, SpeedTestState next) {
+    final ip = next.ip;
+    if (state.status != SessionStatus.connected || ip == null || ip.isEmpty) {
+      return;
+    }
+    if (state.publicIp == ip) {
+      return;
+    }
+    state = state.copyWith(publicIp: ip);
+    final meta = _activeMeta;
+    if (meta != null) {
+      final updated = meta.copyWith(publicIp: ip);
+      _activeMeta = updated;
+      unawaited(_persistMeta(updated));
+      unawaited(_vpnPort.extendSession(updated.duration, publicIp: ip));
+    }
   }
 
   Future<void> _restoreSession() async {
@@ -63,25 +89,30 @@ class SessionController extends StateNotifier<SessionState> {
     }
     try {
       final jsonMap = jsonDecode(stored) as Map<String, dynamic>;
-      final restored = SessionState.fromJson(jsonMap);
-      if (restored.start == null || restored.duration == null) {
-        await prefs.remove(_sessionPrefsKey);
-        state = SessionState.initial();
-        return;
-      }
-      final remaining = _clock.remaining(
-        start: restored.start!,
-        duration: restored.duration!,
+      final meta = SessionMeta.fromJson(jsonMap);
+      final remaining = await _clock.remaining(
+        startElapsedMs: meta.startElapsedMs,
+        duration: meta.duration,
       );
       final connected = await _vpnPort.isConnected();
       if (remaining == Duration.zero || !connected) {
         await _forceDisconnect(clearPrefs: true);
         return;
       }
-      state = restored.copyWith(
+      final elapsed = meta.duration - remaining;
+      final startWall = DateTime.now().toUtc().subtract(elapsed);
+      _activeMeta = meta;
+      state = state.copyWith(
         status: SessionStatus.connected,
-        duration: restored.duration,
+        start: startWall,
+        duration: meta.duration,
+        startElapsedMs: meta.startElapsedMs,
+        serverId: meta.serverId,
+        serverName: meta.serverName,
+        countryCode: meta.countryCode,
+        publicIp: meta.publicIp,
         expired: false,
+        locked: true,
       );
     } catch (_) {
       await prefs.remove(_sessionPrefsKey);
@@ -147,6 +178,8 @@ class SessionController extends StateNotifier<SessionState> {
       final privateKey = await _getOrCreatePrivateKey();
 
       final dnsServers = settingsState.protocol.resolvedDnsServers;
+      final initialIp = _ref.read(speedTestControllerProvider).ip;
+      final startElapsed = await _clock.elapsedRealtime();
       final config = WgConfig(
         interfacePrivateKey: privateKey,
         interfaceDns: dnsServers.isNotEmpty ? dnsServers.join(',') : null,
@@ -165,6 +198,12 @@ class SessionController extends StateNotifier<SessionState> {
         connectOnBoot: settingsState.autoConnect.connectOnBoot,
         reconnectOnNetworkChange:
             settingsState.autoConnect.reconnectOnNetworkChange,
+        serverId: server.id,
+        serverName: server.name,
+        countryCode: server.countryCode,
+        publicIp: initialIp,
+        sessionStartElapsedMs: startElapsed,
+        sessionDurationMs: sessionDuration.inMilliseconds,
       );
 
       final connected = await _vpnPort.connect(config);
@@ -175,19 +214,34 @@ class SessionController extends StateNotifier<SessionState> {
         );
         return;
       }
-
-      final start = _clock.now();
+      final start = DateTime.now().toUtc();
+      final publicIp = initialIp;
+      final meta = SessionMeta(
+        serverId: server.id,
+        serverName: server.name,
+        countryCode: server.countryCode,
+        startElapsedMs: startElapsed,
+        durationMs: sessionDuration.inMilliseconds,
+        publicIp: publicIp,
+      );
+      _activeMeta = meta;
       state = state.copyWith(
         status: SessionStatus.connected,
         start: start,
         duration: sessionDuration,
+        startElapsedMs: startElapsed,
         serverId: server.id,
+        serverName: server.name,
+        countryCode: server.countryCode,
+        publicIp: publicIp,
         config: config,
         expired: false,
+        locked: true,
       );
-      await _persistState();
+      await _persistMeta(meta);
       await _ref.read(serverCatalogProvider.notifier).rememberSelection(server);
       _reconnectAttempts = 0;
+      _queuedServer = null;
     } catch (e) {
       state = state.copyWith(
         status: SessionStatus.error,
@@ -206,7 +260,9 @@ class SessionController extends StateNotifier<SessionState> {
       stats: stats,
     );
     await _clearPersistedState();
+    _activeMeta = null;
     state = SessionState.initial();
+    _applyQueuedServerSelection();
   }
 
   Server? _resolveHistoryServer() {
@@ -226,18 +282,29 @@ class SessionController extends StateNotifier<SessionState> {
     if (clearPrefs) {
       await _clearPersistedState();
     }
-    state = const SessionState(status: SessionStatus.disconnected, expired: true);
+    _activeMeta = null;
+    state = SessionState.initial().copyWith(expired: true, locked: false);
+    _applyQueuedServerSelection();
   }
 
-  Future<void> _persistState() async {
+  Future<void> _persistMeta(SessionMeta meta) async {
     final prefs = await _ref.read(prefsStoreProvider.future);
-    final jsonStr = jsonEncode(state.copyWith(config: null).toJson());
+    final jsonStr = jsonEncode(meta.toJson());
     await prefs.setString(_sessionPrefsKey, jsonStr);
   }
 
   Future<void> _clearPersistedState() async {
     final prefs = await _ref.read(prefsStoreProvider.future);
     await prefs.remove(_sessionPrefsKey);
+  }
+
+  void _applyQueuedServerSelection() {
+    final queued = _queuedServer;
+    if (queued == null) {
+      return;
+    }
+    _ref.read(selectedServerProvider.notifier).select(queued);
+    _queuedServer = null;
   }
 
   void _startTicker() {
@@ -249,12 +316,12 @@ class SessionController extends StateNotifier<SessionState> {
         return;
       }
       if (state.status != SessionStatus.connected ||
-          state.start == null ||
+          state.startElapsedMs == null ||
           state.duration == null) {
         return;
       }
-      final remaining = _clock.remaining(
-        start: state.start!,
+      final remaining = await _clock.remaining(
+        startElapsedMs: state.startElapsedMs!,
         duration: state.duration!,
       );
       if (remaining <= Duration.zero) {
@@ -309,47 +376,29 @@ class SessionController extends StateNotifier<SessionState> {
     await connect(context: context, server: server);
   }
 
+  Future<void> extend(Duration extra) async {
+    final meta = _activeMeta;
+    if (state.status != SessionStatus.connected || meta == null) {
+      return;
+    }
+    final extended = meta.extend(extra);
+    _activeMeta = extended;
+    state = state.copyWith(duration: extended.duration);
+    await _persistMeta(extended);
+    await _vpnPort.extendSession(extended.duration, publicIp: extended.publicIp);
+  }
+
   @override
   void dispose() {
     _ticker?.cancel();
+    _speedSubscription.close();
     super.dispose();
   }
 
   Future<void> switchServer(Server server) async {
+    _queuedServer = server;
     if (state.status != SessionStatus.connected) {
-      return;
-    }
-    try {
-      final privateKey = await _getOrCreatePrivateKey();
-      await _vpnPort.disconnect();
-      final config = WgConfig(
-        interfacePrivateKey: privateKey,
-        peerPublicKey: server.publicKey,
-        peerAllowedIps: server.allowedIps,
-        peerEndpoint: server.endpoint,
-        peerPersistentKeepalive: server.keepaliveSeconds,
-        mtu: server.mtu,
-      );
-      final connected = await _vpnPort.connect(config);
-      if (!connected) {
-        state = state.copyWith(
-          status: SessionStatus.error,
-          errorMessage: 'Unable to switch server automatically.',
-        );
-        return;
-      }
-      state = state.copyWith(
-        status: SessionStatus.connected,
-        serverId: server.id,
-        config: config,
-        errorMessage: null,
-      );
-      await _persistState();
-    } catch (e) {
-      state = state.copyWith(
-        status: SessionStatus.error,
-        errorMessage: 'Automatic switch failed: $e',
-      );
+      _applyQueuedServerSelection();
     }
   }
 }

@@ -9,8 +9,8 @@ class SpotlightController {
   final List<TargetFocus> targets;
   TutorialCoachMark? _coachMark;
 
-  Future<void> show(
-    BuildContext context, {
+  Future<void> show({
+    required BuildContext context,
     VoidCallback? onFinish,
     VoidCallback? onSkip,
   }) async {
@@ -19,10 +19,13 @@ class SpotlightController {
       targets: targets,
       colorShadow: Colors.black87,
       textSkip: l10n.tutorialSkip,
-      onSkip: () => onSkip?.call(),
+      onSkip: () {
+        onSkip?.call();
+        return true;
+      },
       onFinish: () => onFinish?.call(),
     );
-    await _coachMark?.show(context);
+    await _coachMark?.show(context: context);
   }
 
   void dispose() {

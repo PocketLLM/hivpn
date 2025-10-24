@@ -8,11 +8,16 @@ mixin _$SessionState {
   SessionStatus get status => throw UnimplementedError();
   DateTime? get start => throw UnimplementedError();
   Duration? get duration => throw UnimplementedError();
+  int? get startElapsedMs => throw UnimplementedError();
   String? get serverId => throw UnimplementedError();
+  String? get serverName => throw UnimplementedError();
+  String? get countryCode => throw UnimplementedError();
+  String? get publicIp => throw UnimplementedError();
   String? get errorMessage => throw UnimplementedError();
   @JsonKey(ignore: true)
   WgConfig? get config => throw UnimplementedError();
   bool get expired => throw UnimplementedError();
+  bool get locked => throw UnimplementedError();
   Map<String, dynamic> toJson() => throw UnimplementedError();
   @JsonKey(ignore: true)
   $SessionStateCopyWith<SessionState> get copyWith =>
@@ -27,10 +32,15 @@ abstract class $SessionStateCopyWith<$Res> {
     SessionStatus status,
     DateTime? start,
     Duration? duration,
+    int? startElapsedMs,
     String? serverId,
+    String? serverName,
+    String? countryCode,
+    String? publicIp,
     String? errorMessage,
     WgConfig? config,
     bool expired,
+    bool locked,
   });
 }
 
@@ -45,21 +55,37 @@ class _$SessionStateCopyWithImpl<$Res> implements $SessionStateCopyWith<$Res> {
     Object? status = freezed,
     Object? start = freezed,
     Object? duration = freezed,
+    Object? startElapsedMs = freezed,
     Object? serverId = freezed,
+    Object? serverName = freezed,
+    Object? countryCode = freezed,
+    Object? publicIp = freezed,
     Object? errorMessage = freezed,
     Object? config = freezed,
     Object? expired = freezed,
+    Object? locked = freezed,
   }) {
     return _then(_value.copyWith(
       status: status == freezed ? _value.status : status as SessionStatus,
       start: start == freezed ? _value.start : start as DateTime?,
       duration: duration == freezed ? _value.duration : duration as Duration?,
+      startElapsedMs: startElapsedMs == freezed
+          ? _value.startElapsedMs
+          : startElapsedMs as int?,
       serverId: serverId == freezed ? _value.serverId : serverId as String?,
+      serverName:
+          serverName == freezed ? _value.serverName : serverName as String?,
+      countryCode: countryCode == freezed
+          ? _value.countryCode
+          : countryCode as String?,
+      publicIp:
+          publicIp == freezed ? _value.publicIp : publicIp as String?,
       errorMessage: errorMessage == freezed
           ? _value.errorMessage
           : errorMessage as String?,
       config: config == freezed ? _value.config : config as WgConfig?,
       expired: expired == freezed ? _value.expired : expired as bool,
+      locked: locked == freezed ? _value.locked : locked as bool,
     ));
   }
 }
@@ -74,10 +100,15 @@ abstract class _$$_SessionStateCopyWith<$Res>
     SessionStatus status,
     DateTime? start,
     Duration? duration,
+    int? startElapsedMs,
     String? serverId,
+    String? serverName,
+    String? countryCode,
+    String? publicIp,
     String? errorMessage,
     WgConfig? config,
     bool expired,
+    bool locked,
   });
 }
 
@@ -96,21 +127,37 @@ class __$$_SessionStateCopyWithImpl<$Res>
     Object? status = freezed,
     Object? start = freezed,
     Object? duration = freezed,
+    Object? startElapsedMs = freezed,
     Object? serverId = freezed,
+    Object? serverName = freezed,
+    Object? countryCode = freezed,
+    Object? publicIp = freezed,
     Object? errorMessage = freezed,
     Object? config = freezed,
     Object? expired = freezed,
+    Object? locked = freezed,
   }) {
     return _then(_$_SessionState(
       status: status == freezed ? _value.status : status as SessionStatus,
       start: start == freezed ? _value.start : start as DateTime?,
       duration: duration == freezed ? _value.duration : duration as Duration?,
+      startElapsedMs: startElapsedMs == freezed
+          ? _value.startElapsedMs
+          : startElapsedMs as int?,
       serverId: serverId == freezed ? _value.serverId : serverId as String?,
+      serverName:
+          serverName == freezed ? _value.serverName : serverName as String?,
+      countryCode: countryCode == freezed
+          ? _value.countryCode
+          : countryCode as String?,
+      publicIp:
+          publicIp == freezed ? _value.publicIp : publicIp as String?,
       errorMessage: errorMessage == freezed
           ? _value.errorMessage
           : errorMessage as String?,
       config: config == freezed ? _value.config : config as WgConfig?,
       expired: expired == freezed ? _value.expired : expired as bool,
+      locked: locked == freezed ? _value.locked : locked as bool,
     ));
   }
 }
@@ -121,10 +168,15 @@ class _$_SessionState extends _SessionState {
     required this.status,
     this.start,
     this.duration,
+    this.startElapsedMs,
     this.serverId,
+    this.serverName,
+    this.countryCode,
+    this.publicIp,
     this.errorMessage,
     @JsonKey(ignore: true) this.config,
     this.expired = false,
+    this.locked = false,
   }) : super._();
 
   factory _$_SessionState.fromJson(Map<String, dynamic> json) =>
@@ -137,7 +189,15 @@ class _$_SessionState extends _SessionState {
   @override
   final Duration? duration;
   @override
+  final int? startElapsedMs;
+  @override
   final String? serverId;
+  @override
+  final String? serverName;
+  @override
+  final String? countryCode;
+  @override
+  final String? publicIp;
   @override
   final String? errorMessage;
   @override
@@ -146,6 +206,9 @@ class _$_SessionState extends _SessionState {
   @override
   @JsonKey()
   final bool expired;
+  @override
+  @JsonKey()
+  final bool locked;
 
   @override
   Map<String, dynamic> toJson() {
@@ -158,7 +221,7 @@ class _$_SessionState extends _SessionState {
 
   @override
   String toString() {
-    return 'SessionState(status: $status, start: $start, duration: $duration, serverId: $serverId, errorMessage: $errorMessage, expired: $expired)';
+    return 'SessionState(status: $status, start: $start, duration: $duration, startElapsedMs: $startElapsedMs, serverId: $serverId, serverName: $serverName, countryCode: $countryCode, publicIp: $publicIp, errorMessage: $errorMessage, expired: $expired, locked: $locked)';
   }
 
   @override
@@ -168,9 +231,14 @@ class _$_SessionState extends _SessionState {
             status == other.status &&
             start == other.start &&
             duration == other.duration &&
+            startElapsedMs == other.startElapsedMs &&
             serverId == other.serverId &&
+            serverName == other.serverName &&
+            countryCode == other.countryCode &&
+            publicIp == other.publicIp &&
             errorMessage == other.errorMessage &&
-            expired == other.expired);
+            expired == other.expired &&
+            locked == other.locked);
   }
 
   @override
@@ -178,9 +246,14 @@ class _$_SessionState extends _SessionState {
         status,
         start,
         duration,
+        startElapsedMs,
         serverId,
+        serverName,
+        countryCode,
+        publicIp,
         errorMessage,
         expired,
+        locked,
       );
 }
 
@@ -189,10 +262,15 @@ abstract class _SessionState extends SessionState {
     required final SessionStatus status,
     final DateTime? start,
     final Duration? duration,
+    final int? startElapsedMs,
     final String? serverId,
+    final String? serverName,
+    final String? countryCode,
+    final String? publicIp,
     final String? errorMessage,
     @JsonKey(ignore: true) final WgConfig? config,
     final bool expired,
+    final bool locked,
   }) = _$_SessionState;
   const _SessionState._() : super._();
 

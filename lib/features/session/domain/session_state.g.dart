@@ -10,14 +10,19 @@ Map<String, dynamic> _$SessionStateToJson(SessionState instance) =>
     instance.toJson();
 
 _$_SessionState _$$_SessionStateFromJson(Map<String, dynamic> json) =>
-    _$_SessionState(
+  _$_SessionState(
       status: $enumDecode(_$SessionStatusEnumMap, json['status']),
       start:
           json['start'] == null ? null : DateTime.parse(json['start'] as String),
       duration: _durationFromJson(json['duration'] as int?),
+      startElapsedMs: (json['startElapsedMs'] as num?)?.toInt(),
       serverId: json['serverId'] as String?,
+      serverName: json['serverName'] as String?,
+      countryCode: json['countryCode'] as String?,
+      publicIp: json['publicIp'] as String?,
       errorMessage: json['errorMessage'] as String?,
       expired: json['expired'] as bool? ?? false,
+      locked: json['locked'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$$_SessionStateToJson(_$_SessionState instance) =>
@@ -25,9 +30,14 @@ Map<String, dynamic> _$$_SessionStateToJson(_$_SessionState instance) =>
       'status': _$SessionStatusEnumMap[instance.status]!,
       'start': instance.start?.toIso8601String(),
       'duration': _durationToJson(instance.duration),
+      'startElapsedMs': instance.startElapsedMs,
       'serverId': instance.serverId,
+      'serverName': instance.serverName,
+      'countryCode': instance.countryCode,
+      'publicIp': instance.publicIp,
       'errorMessage': instance.errorMessage,
       'expired': instance.expired,
+      'locked': instance.locked,
     };
 
 const _$SessionStatusEnumMap = {
