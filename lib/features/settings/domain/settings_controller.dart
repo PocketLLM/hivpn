@@ -127,6 +127,7 @@ class SettingsController extends StateNotifier<SettingsState> {
     final endedAt = DateTime.now().toUtc();
     final bytesRx = (stats['rxBytes'] as num?)?.toInt() ?? 0;
     final bytesTx = (stats['txBytes'] as num?)?.toInt() ?? 0;
+    final duration = session.duration ?? endedAt.difference(startedAt);
     await history.addRecord(
       ConnectionRecord(
         serverId: server.id,

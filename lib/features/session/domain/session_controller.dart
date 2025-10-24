@@ -18,6 +18,7 @@ import '../../../services/vpn/wg_config.dart';
 import '../../servers/domain/server.dart';
 import '../../servers/domain/server_providers.dart';
 import '../../settings/domain/settings_controller.dart';
+import '../../settings/domain/vpn_protocol.dart';
 import '../../speedtest/domain/speedtest_controller.dart';
 import '../../speedtest/domain/speedtest_state.dart';
 import '../../usage/data_usage_controller.dart';
