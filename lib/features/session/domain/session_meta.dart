@@ -7,6 +7,7 @@ class SessionMeta extends Equatable {
     required this.countryCode,
     required this.startElapsedMs,
     required this.durationMs,
+    this.publicIp,
   });
 
   final String serverId;
@@ -14,6 +15,7 @@ class SessionMeta extends Equatable {
   final String countryCode;
   final int startElapsedMs;
   final int durationMs;
+  final String? publicIp;
 
   Duration get duration => Duration(milliseconds: durationMs);
 
@@ -23,6 +25,7 @@ class SessionMeta extends Equatable {
     String? countryCode,
     int? startElapsedMs,
     int? durationMs,
+    String? publicIp,
   }) {
     return SessionMeta(
       serverId: serverId ?? this.serverId,
@@ -30,7 +33,12 @@ class SessionMeta extends Equatable {
       countryCode: countryCode ?? this.countryCode,
       startElapsedMs: startElapsedMs ?? this.startElapsedMs,
       durationMs: durationMs ?? this.durationMs,
+      publicIp: publicIp ?? this.publicIp,
     );
+  }
+
+  SessionMeta extend(Duration extra) {
+    return copyWith(durationMs: durationMs + extra.inMilliseconds);
   }
 
   Map<String, dynamic> toJson() {
@@ -40,6 +48,7 @@ class SessionMeta extends Equatable {
       'countryCode': countryCode,
       'startElapsedMs': startElapsedMs,
       'durationMs': durationMs,
+      if (publicIp != null) 'publicIp': publicIp,
     };
   }
 
@@ -50,6 +59,7 @@ class SessionMeta extends Equatable {
       countryCode: json['countryCode'] as String,
       startElapsedMs: (json['startElapsedMs'] as num).toInt(),
       durationMs: (json['durationMs'] as num).toInt(),
+      publicIp: json['publicIp'] as String?,
     );
   }
 
@@ -60,5 +70,6 @@ class SessionMeta extends Equatable {
         countryCode,
         startElapsedMs,
         durationMs,
+        publicIp,
       ];
 }

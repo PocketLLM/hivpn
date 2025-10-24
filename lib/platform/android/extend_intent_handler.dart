@@ -31,7 +31,7 @@ class ExtendIntentHandler {
 
   Future<void> dispose() async {
     if (_registered) {
-      await _channel.setMethodCallHandler(null);
+      _channel.setMethodCallHandler(null);
       _registered = false;
     }
   }
