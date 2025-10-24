@@ -15,8 +15,7 @@ import '../../../services/time/session_clock_provider.dart';
 import '../../../services/vpn/vpn_port.dart';
 import '../../../services/vpn/vpn_provider.dart';
 import '../../../services/vpn/wg_config.dart';
-import '../../settings/domain/settings_controller.dart';
-import '../../settings/domain/split_tunnel_config.dart';
+import '../../usage/data_usage_controller.dart';
 import '../../servers/domain/server.dart';
 import '../../servers/domain/server_catalog_controller.dart';
 import 'session_state.dart';
@@ -25,6 +24,7 @@ import 'session_status.dart';
 const _privateKeyStorageKey = 'wg_private_key';
 const _sessionPrefsKey = 'active_session';
 const sessionDuration = Duration(hours: 1);
+const _dataLimitMessage = 'Monthly data limit reached.';
 
 class SessionController extends StateNotifier<SessionState> {
   SessionController(this._ref)
@@ -261,11 +261,14 @@ class SessionController extends StateNotifier<SessionState> {
         await _forceDisconnect(clearPrefs: true);
         return;
       }
-      final connected = await _vpnPort.isConnected();
-      if (!connected &&
-          state.config != null &&
-          settings.autoConnect.reconnectOnNetworkChange) {
-        await _attemptReconnect();
+      await _ref.read(dataUsageControllerProvider.notifier).recordTickUsage();
+      final usage = _ref.read(dataUsageControllerProvider);
+      if (usage.limitExceeded) {
+        await _forceDisconnect(clearPrefs: true);
+        state = state.copyWith(
+          status: SessionStatus.error,
+          errorMessage: _dataLimitMessage,
+        );
       }
     });
   }
@@ -310,6 +313,44 @@ class SessionController extends StateNotifier<SessionState> {
   void dispose() {
     _ticker?.cancel();
     super.dispose();
+  }
+
+  Future<void> switchServer(Server server) async {
+    if (state.status != SessionStatus.connected) {
+      return;
+    }
+    try {
+      final privateKey = await _getOrCreatePrivateKey();
+      await _vpnPort.disconnect();
+      final config = WgConfig(
+        interfacePrivateKey: privateKey,
+        peerPublicKey: server.publicKey,
+        peerAllowedIps: server.allowedIps,
+        peerEndpoint: server.endpoint,
+        peerPersistentKeepalive: server.keepaliveSeconds,
+        mtu: server.mtu,
+      );
+      final connected = await _vpnPort.connect(config);
+      if (!connected) {
+        state = state.copyWith(
+          status: SessionStatus.error,
+          errorMessage: 'Unable to switch server automatically.',
+        );
+        return;
+      }
+      state = state.copyWith(
+        status: SessionStatus.connected,
+        serverId: server.id,
+        config: config,
+        errorMessage: null,
+      );
+      await _persistState();
+    } catch (e) {
+      state = state.copyWith(
+        status: SessionStatus.error,
+        errorMessage: 'Automatic switch failed: $e',
+      );
+    }
   }
 }
 

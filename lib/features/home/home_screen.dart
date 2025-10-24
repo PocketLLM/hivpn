@@ -1,14 +1,20 @@
+import 'dart:async';
+
 import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
 import '../../core/utils/time.dart';
+import '../../features/connection/presentation/connection_quality_indicator.dart';
 import '../../services/storage/prefs.dart';
+import '../../services/haptics/haptics_service.dart';
 import '../../theme/colors.dart';
 import '../../theme/theme.dart';
+import '../../widgets/home_status_widget.dart';
 import '../../widgets/connect_control.dart';
 import '../../widgets/status_pill.dart';
+import '../../l10n/app_localizations.dart';
 import '../onboarding/presentation/spotlight_controller.dart';
 import '../onboarding/presentation/spotlight_tour.dart';
 import '../servers/domain/server.dart';
@@ -20,9 +26,9 @@ import '../session/domain/session_status.dart';
 import '../session/presentation/countdown.dart';
 import '../speedtest/domain/speedtest_controller.dart';
 import '../speedtest/presentation/speedtest_screen.dart';
-import '../history/presentation/history_screen.dart';
+import '../usage/data_usage_controller.dart';
+import '../usage/data_usage_state.dart';
 import '../settings/presentation/settings_screen.dart';
-import '../servers/domain/server_catalog_controller.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -63,7 +69,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
     await Future<void>.delayed(const Duration(milliseconds: 600));
-    final steps = _buildSpotlightSteps();
+    final l10n = context.l10n;
+    final steps = _buildSpotlightSteps(l10n);
     _spotlightController = SpotlightController(
       targets: steps.map((step) => step.toTarget()).toList(),
     );
@@ -78,26 +85,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     prefs.setBool('tour_done', true);
   }
 
-  List<SpotlightStep> _buildSpotlightSteps() {
+  List<SpotlightStep> _buildSpotlightSteps(AppLocalizations l10n) {
     return [
       SpotlightStep(
         key: _serverCarouselKey,
-        text: 'Choose a location to route your traffic.',
+        text: l10n.tutorialChooseLocation,
         align: ContentAlign.top,
       ),
       SpotlightStep(
         key: _connectKey,
-        text: 'Watch a short ad to unlock 60 minutes.',
+        text: l10n.tutorialWatchAd,
         align: ContentAlign.bottom,
       ),
       SpotlightStep(
         key: _statusKey,
-        text: 'Your session time shows here.',
+        text: l10n.tutorialSession,
         align: ContentAlign.bottom,
       ),
       SpotlightStep(
         key: _speedTabKey,
-        text: 'Measure speed, ping, and IP.',
+        text: l10n.tutorialSpeed,
         align: ContentAlign.top,
       ),
     ];
@@ -117,8 +124,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _showSessionExpiredDialog();
       } else {
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Disconnected. Watch another ad to reconnect.'),
+          SnackBar(
+            content: Text(context.l10n.disconnectedWatchAd),
           ),
         );
       }
@@ -127,6 +134,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -135,21 +143,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: IndexedStack(
                 index: _tabIndex,
                 children: [
-                  _buildHomeTab(context),
+                  _buildHomeTab(context, l10n),
                   const SpeedTestScreen(),
                   const HistoryScreen(),
                   const SettingsScreen(),
                 ],
               ),
             ),
-            _buildNavigationBar(context),
+            _buildNavigationBar(context, l10n),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHomeTab(BuildContext context) {
+  Widget _buildHomeTab(BuildContext context, AppLocalizations l10n) {
     final session = ref.watch(sessionControllerProvider);
     final countdown = ref.watch(sessionCountdownProvider).maybeWhen(
           data: formatCountdown,
@@ -160,9 +168,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final catalog = ref.watch(serverCatalogProvider);
     final selectedServer = ref.watch(selectedServerProvider);
     final speedState = ref.watch(speedTestControllerProvider);
+    final usageState = ref.watch(dataUsageControllerProvider);
     final theme = Theme.of(context);
 
-    final statusLabel = _statusLabel(session.status, countdown);
+    final statusLabel = _statusLabel(session.status, countdown, l10n);
     final statusColor = _statusColor(session.status);
 
     final isBusy = session.status == SessionStatus.preparing ||
@@ -174,6 +183,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(child: HomeStatusWidget()),
+              IconButton(
+                onPressed: () => _openSettings(context),
+                icon: const Icon(Icons.settings_outlined),
+                tooltip: l10n.settingsTitle,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const ConnectionQualityIndicator(),
+          const SizedBox(height: 16),
+          _buildUsageSummary(context, usageState),
+          const SizedBox(height: 24),
           Align(
             alignment: Alignment.centerLeft,
             child: KeyedSubtree(
@@ -186,7 +211,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            selectedServer?.name ?? 'Select a server to begin',
+            selectedServer?.name ?? l10n.selectServerToBegin,
             style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
             textAlign: TextAlign.center,
           ),
@@ -194,14 +219,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text(
             selectedServer != null
                 ? '${_flagEmoji(selectedServer.countryCode)}  ${selectedServer.countryCode.toUpperCase()}'
-                : 'No server selected',
+                : l10n.noServerSelected,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurface.withOpacity(0.7),
             ),
           ),
           const SizedBox(height: 24),
           Text(
-            isConnected ? 'Session remaining' : 'Unlock secure access',
+            isConnected ? l10n.sessionRemaining : l10n.unlockSecureAccess,
             style: theme.textTheme.labelLarge,
           ),
           const SizedBox(height: 8),
@@ -213,16 +238,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               enabled: !isBusy,
               isActive: isConnected,
               isLoading: isBusy,
-              label: isConnected ? 'Disconnect' : 'Connect',
-              statusText: isConnected ? countdown : 'Watch ad to start',
+              label: isConnected ? l10n.disconnect : l10n.connect,
+              statusText: isConnected ? countdown : l10n.watchAdToStart,
               onTap: () async {
+                await ref.read(hapticsServiceProvider).impact();
                 if (isConnected) {
                   await ref.read(sessionControllerProvider.notifier).disconnect();
                 } else {
                   final server = selectedServer;
                   if (server == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please select a server first.')),
+                      SnackBar(content: Text(l10n.pleaseSelectServer)),
                     );
                     return;
                   }
@@ -240,12 +266,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Locations',
+                  l10n.locations,
                   style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 TextButton(
-                  onPressed: () => _showServerPicker(context),
-                  child: const Text('View all'),
+                  onPressed: () {
+                    unawaited(_showServerPicker(context));
+                  },
+                  child: Text(l10n.viewAll),
                 ),
               ],
             ),
@@ -253,56 +281,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 12),
           KeyedSubtree(
             key: _serverCarouselKey,
-            child: SizedBox(
-              height: 160,
-              child: catalog.sortedServers.isEmpty
-                  ? const Center(child: Text('No servers available'))
-                  : Builder(builder: (context) {
-                      final servers = catalog.sortedServers.take(8).toList();
-                      return ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: servers.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 16),
-                        itemBuilder: (context, index) {
-                          final server = servers[index];
-                          final selected = selectedServer?.id == server.id;
-                          return _ServerCard(
-                            server: server,
-                            selected: selected,
-                            connected: isConnected && selected,
-                            latency: catalog.latencyMs[server.id],
-                            favorite: catalog.favorites.contains(server.id),
-                            onFavorite: () => ref
-                                .read(serverCatalogProvider.notifier)
-                                .toggleFavorite(server),
-                            onTap: isConnected
-                                ? null
-                                : () => ref
-                                    .read(selectedServerProvider.notifier)
-                                    .select(server),
-                          );
-                        },
-                      );
-                    }),
+            child: serversAsync.when(
+              data: (servers) => SizedBox(
+                height: 140,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: servers.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 16),
+                  itemBuilder: (context, index) {
+                    final server = servers[index];
+                    final selected = selectedServer?.id == server.id;
+                    return _ServerCard(
+                      server: server,
+                      selected: selected,
+                      connected: isConnected && selected,
+                      onTap: isConnected
+                          ? null
+                          : () {
+                              unawaited(
+                                  ref.read(hapticsServiceProvider).selection());
+                              ref
+                                  .read(selectedServerProvider.notifier)
+                                  .select(server);
+                            },
+                    );
+                  },
+                ),
+              ),
+              loading: () => const SizedBox(
+                height: 140,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (_, __) => Text(l10n.failedToLoadServers),
             ),
           ),
           const SizedBox(height: 32),
           _buildInfoFooter(
             context,
+            l10n: l10n,
             ip: speedState.ip ?? '--',
             remaining: countdown,
           ),
           const SizedBox(height: 16),
           TextButton(
-            onPressed: () => _showLegalDialog(context),
-            child: const Text('Terms & Privacy'),
+            onPressed: () {
+              unawaited(ref.read(hapticsServiceProvider).selection());
+              _showLegalDialog(context);
+            },
+            child: Text(l10n.termsPrivacy),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoFooter(BuildContext context, {required String ip, required String remaining}) {
+  Widget _buildInfoFooter(BuildContext context,
+      {required AppLocalizations l10n,
+      required String ip,
+      required String remaining}) {
     final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(20),
@@ -320,7 +356,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Current IP', style: theme.textTheme.labelLarge),
+                  Text(l10n.currentIp, style: theme.textTheme.labelLarge),
                   const SizedBox(height: 4),
                   Text(ip, style: theme.textTheme.titleMedium),
                 ],
@@ -328,7 +364,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('Session', style: theme.textTheme.labelLarge),
+                  Text(l10n.sessionLabel, style: theme.textTheme.labelLarge),
                   const SizedBox(height: 4),
                   Text(remaining, style: theme.textTheme.titleMedium),
                 ],
@@ -337,14 +373,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(height: 16),
           GestureDetector(
-            onTap: () => setState(() => _tabIndex = 1),
+            onTap: () {
+              unawaited(ref.read(hapticsServiceProvider).selection());
+              setState(() => _tabIndex = 1);
+            },
             child: Row(
               children: [
                 Icon(Icons.speed, color: theme.colorScheme.secondary),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Run Speed Test to benchmark your tunnel latency.',
+                    l10n.runSpeedTest,
                     style: theme.textTheme.bodyMedium,
                   ),
                 ),
@@ -357,7 +396,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildNavigationBar(BuildContext context) {
+  Widget _buildNavigationBar(BuildContext context, AppLocalizations l10n) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -373,9 +412,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Expanded(
               child: _NavigationItem(
                 icon: Icons.shield_moon_outlined,
-                label: 'Home',
+                label: l10n.navHome,
                 selected: _tabIndex == 0,
-                onTap: () => setState(() => _tabIndex = 0),
+                onTap: () {
+                  unawaited(ref.read(hapticsServiceProvider).selection());
+                  setState(() => _tabIndex = 0);
+                },
               ),
             ),
             Expanded(
@@ -383,9 +425,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 key: _speedTabKey,
                 child: _NavigationItem(
                   icon: Icons.speed,
-                  label: 'Speed Test',
+                  label: l10n.navSpeedTest,
                   selected: _tabIndex == 1,
-                  onTap: () => setState(() => _tabIndex = 1),
+                  onTap: () {
+                    unawaited(ref.read(hapticsServiceProvider).selection());
+                    setState(() => _tabIndex = 1);
+                  },
                 ),
               ),
             ),
@@ -426,23 +471,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  String _statusLabel(SessionStatus status, String countdown) {
+  String _statusLabel(SessionStatus status, String countdown, AppLocalizations l10n) {
     switch (status) {
       case SessionStatus.connected:
-        return 'Connected: $countdown';
+        return l10n.connectedCountdownLabel(countdown);
       case SessionStatus.connecting:
-        return 'Connecting…';
+        return l10n.statusConnecting;
       case SessionStatus.preparing:
-        return 'Preparing…';
+        return l10n.statusPreparing;
       case SessionStatus.error:
-        return 'Error';
+        return l10n.statusError;
       case SessionStatus.disconnected:
       default:
-        return 'Disconnected';
+        return l10n.statusDisconnected;
     }
   }
 
-  void _showServerPicker(BuildContext context) {
+  Future<void> _showServerPicker(BuildContext context) async {
+    await ref.read(hapticsServiceProvider).selection();
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -460,13 +506,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Legal'),
-        content: const Text(
-            'VPN usage may be regulated in your country. Ensure you understand local laws before connecting.'),
+        title: Text(context.l10n.legalTitle),
+        content: Text(context.l10n.legalBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(context.l10n.close),
           ),
         ],
       ),
@@ -477,13 +522,58 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Session expired'),
-        content: const Text('Your 60 minute session is over. Watch another ad to reconnect.'),
+        title: Text(context.l10n.sessionExpiredTitle),
+        content: Text(context.l10n.sessionExpiredBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Ok'),
+            child: Text(context.l10n.ok),
           ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openSettings(BuildContext context) async {
+    await ref.read(hapticsServiceProvider).selection();
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+    );
+  }
+
+  Widget _buildUsageSummary(BuildContext context, DataUsageState usage) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final usedGb = usage.usedBytes / (1024 * 1024 * 1024);
+    final limitGb = usage.monthlyLimitBytes != null
+        ? usage.monthlyLimitBytes! / (1024 * 1024 * 1024)
+        : null;
+    final progress = usage.hasLimit ? usage.utilization.clamp(0, 1).toDouble() : null;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.elevatedSurface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.settingsUsage,
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.usageSummaryText(usedGb, limitGb),
+            style: theme.textTheme.bodyMedium,
+          ),
+          if (progress != null) ...[
+            const SizedBox(height: 12),
+            LinearProgressIndicator(value: progress),
+          ],
         ],
       ),
     );
@@ -564,6 +654,7 @@ class _ServerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final cardColor = theme.pastelCard(
       selected ? theme.colorScheme.secondary : theme.colorScheme.primaryContainer,
       opacity: selected ? 0.22 : 0.12,
@@ -594,30 +685,29 @@ class _ServerCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              latency != null ? 'Latency ${latency!} ms' : 'Latency --',
+              '${l10n.latencyLabel} -- ms',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
             const Spacer(),
-            Row(
-              children: [
-                if (onFavorite != null)
-                  IconButton(
-                    onPressed: onFavorite,
-                    icon: Icon(
-                      favorite ? Icons.star : Icons.star_outline,
-                      color: favorite
-                          ? theme.colorScheme.secondary
-                          : theme.colorScheme.onSurface.withOpacity(0.6),
-                    ),
-                  )
-                else
-                  const SizedBox(width: 48),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: connected
+                      ? HiVpnColors.success.withOpacity(0.2)
+                      : theme.colorScheme.surface.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  connected
+                      ? l10n.badgeConnected
+                      : selected
+                          ? l10n.badgeSelected
+                          : l10n.badgeConnect,
+                  style: theme.textTheme.labelSmall?.copyWith(
                     color: connected
                         ? HiVpnColors.success.withOpacity(0.2)
                         : theme.colorScheme.surface.withOpacity(0.4),

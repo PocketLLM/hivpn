@@ -1,370 +1,362 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../history/domain/connection_history_notifier.dart';
-import '../../servers/domain/server_catalog_controller.dart';
-import '../../../services/apps/installed_apps_provider.dart';
-import '../domain/settings_controller.dart';
-import '../domain/settings_state.dart';
-import '../domain/split_tunnel_config.dart';
-import '../domain/vpn_protocol.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../referral/domain/referral_controller.dart';
+import '../../referral/domain/referral_state.dart';
+import '../../usage/data_usage_controller.dart';
+import '../../usage/presentation/data_usage_card.dart';
+import '../domain/preferences_controller.dart';
+import '../domain/preferences_state.dart';
+import '../../../services/backup/preferences_backup_service.dart';
+import '../../../services/haptics/haptics_service.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsControllerProvider);
-    final appsAsync = ref.watch(installedAppsProvider);
-    final controller = ref.read(settingsControllerProvider.notifier);
-    final theme = Theme.of(context);
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 120),
-      children: [
-        Text('Connection', style: theme.textTheme.titleLarge),
-        const SizedBox(height: 12),
-        _ProtocolSection(settings: settings, controller: controller),
-        const SizedBox(height: 24),
-        _SplitTunnelSection(
-          settings: settings,
-          controller: controller,
-          appsAsync: appsAsync,
-        ),
-        const SizedBox(height: 24),
-        _AutoConnectSection(settings: settings, controller: controller),
-        const SizedBox(height: 32),
-        Text('Appearance', style: theme.textTheme.titleLarge),
-        const SizedBox(height: 12),
-        _AppearanceSection(settings: settings, controller: controller),
-        const SizedBox(height: 32),
-        Text('Privacy', style: theme.textTheme.titleLarge),
-        const SizedBox(height: 12),
-        _PrivacySection(ref: ref),
-      ],
-    );
-  }
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _ProtocolSection extends StatelessWidget {
-  const _ProtocolSection({required this.settings, required this.controller});
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  final TextEditingController _restoreController = TextEditingController();
 
-  final SettingsState settings;
-  final SettingsController controller;
+  @override
+  void dispose() {
+    _restoreController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
+    final l10n = context.l10n;
+    final preferences = ref.watch(preferencesControllerProvider);
+    final referral = ref.watch(referralControllerProvider);
+    final usage = ref.watch(dataUsageControllerProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.settingsTitle),
       ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          Text('Protocol', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          DropdownButton<VpnProtocol>(
-            value: settings.protocol.protocol,
-            items: VpnProtocol.values
-                .map(
-                  (protocol) => DropdownMenuItem(
-                    value: protocol,
-                    child: Text(protocol.label),
-                  ),
-                )
-                .toList(),
+          Text(l10n.settingsConnection, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          SwitchListTile.adaptive(
+            value: preferences.autoServerSwitch,
+            title: Text(l10n.settingsAutoSwitch),
+            subtitle: Text(l10n.settingsAutoSwitchSubtitle),
             onChanged: (value) {
-              if (value != null) {
-                controller.setProtocol(value);
-              }
+              unawaited(() async {
+                await ref.read(hapticsServiceProvider).selection();
+                await ref
+                    .read(preferencesControllerProvider.notifier)
+                    .toggleAutoServerSwitch(value);
+              }());
             },
           ),
-          const SizedBox(height: 12),
-          Text('MTU (${settings.protocol.mtu})',
-              style: theme.textTheme.bodySmall),
-          Slider(
-            value: settings.protocol.mtu.toDouble(),
-            min: 1200,
-            max: 1500,
-            divisions: 30,
-            onChanged: (value) => controller.setMtu(value.round()),
+          SwitchListTile.adaptive(
+            value: preferences.hapticsEnabled,
+            title: Text(l10n.settingsHaptics),
+            subtitle: Text(l10n.settingsHapticsSubtitle),
+            onChanged: (value) {
+              unawaited(() async {
+                await ref.read(hapticsServiceProvider).selection();
+                await ref
+                    .read(preferencesControllerProvider.notifier)
+                    .toggleHaptics(value);
+              }());
+            },
           ),
-          const SizedBox(height: 8),
-          Text('Keepalive (${settings.protocol.keepaliveSeconds}s)',
-              style: theme.textTheme.bodySmall),
-          Slider(
-            value: settings.protocol.keepaliveSeconds.toDouble(),
-            min: 0,
-            max: 120,
-            divisions: 24,
-            onChanged: (value) => controller.setKeepalive(value.round()),
+          const SizedBox(height: 24),
+          DataUsageCard(
+            onSetLimit: () => _handleLimitTap(context, usage.monthlyLimitBytes),
+            onReset: () => _handleResetUsage(),
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            children: VpnDnsOption.values
-                .map(
-                  (option) => ChoiceChip(
-                    label: Text(option.label),
-                    selected: settings.protocol.dnsOption == option,
-                    onSelected: (_) => controller.setDnsOption(option),
-                  ),
-                )
-                .toList(),
-          ),
-          if (settings.protocol.dnsOption == VpnDnsOption.custom) ...[
+          const SizedBox(height: 24),
+          _buildBackupSection(context),
+          const SizedBox(height: 24),
+          _buildReferralSection(context, referral),
+          const SizedBox(height: 24),
+          _buildLanguageSection(context, preferences),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackupSection(BuildContext context) {
+    final l10n = context.l10n;
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.settingsBackup,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: () => unawaited(_createBackup(context)),
+                  child: Text(l10n.settingsCreateBackup),
+                ),
+                const SizedBox(width: 12),
+                TextButton(
+                  onPressed: () => unawaited(_restoreBackup(context)),
+                  child: Text(l10n.settingsRestore),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReferralSection(BuildContext context, ReferralState referral) {
+    final l10n = context.l10n;
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.settingsReferral,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Text(l10n.settingsReferralSubtitle,
+                style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 12),
-            TextFormField(
-              initialValue: settings.protocol.customDnsServers.join(', '),
-              decoration: const InputDecoration(
-                labelText: 'Custom DNS servers',
-                hintText: 'e.g. 9.9.9.9, 149.112.112.112',
+            Row(
+              children: [
+                Expanded(
+                  child: SelectableText(
+                    referral.referralCode,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () => _showAddReferralDialog(context),
+                  child: Text(l10n.settingsAddReferral),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text('${l10n.settingsRewards}: ${referral.rewardsEarned}'),
+            if (referral.referredUsers.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: referral.referredUsers
+                    .map((code) => Chip(label: Text(code)))
+                    .toList(),
               ),
-              onFieldSubmitted: (value) {
-                final servers = value
-                    .split(',')
-                    .map((e) => e.trim())
-                    .where((element) => element.isNotEmpty)
-                    .toList();
-                controller.setCustomDns(servers);
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageSection(BuildContext context, PreferencesState preferences) {
+    final l10n = context.l10n;
+    final locales = AppLocalizations.supportedLocales;
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.settingsLanguage,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Text(l10n.settingsLanguageSubtitle,
+                style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 12),
+            DropdownButton<String?>(
+              value: preferences.localeCode,
+              items: [
+                DropdownMenuItem<String?>
+                    (value: null, child: Text(l10n.settingsLanguageSystem)),
+                ...locales.map((locale) => DropdownMenuItem<String?>(
+                      value: locale.languageCode,
+                      child: Text(locale.languageCode.toUpperCase()),
+                    )),
+              ],
+              onChanged: (value) {
+                unawaited(() async {
+                  await ref.read(hapticsServiceProvider).selection();
+                  await ref
+                      .read(preferencesControllerProvider.notifier)
+                      .setLocale(value);
+                }());
               },
             ),
           ],
-        ],
+        ),
       ),
     );
   }
-}
 
-class _SplitTunnelSection extends StatelessWidget {
-  const _SplitTunnelSection({
-    required this.settings,
-    required this.controller,
-    required this.appsAsync,
-  });
-
-  final SettingsState settings;
-  final SettingsController controller;
-  final AsyncValue<List<InstalledAppInfo>> appsAsync;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SwitchListTile.adaptive(
-            value: settings.splitTunnel.isEnabled,
-            title: const Text('Split tunneling'),
-            subtitle: const Text('Route only selected apps through HiVPN'),
-            onChanged: (value) {
-              controller.toggleSplitTunnel(value);
-            },
-          ),
-          if (settings.splitTunnel.isEnabled)
-            appsAsync.when(
-              data: (apps) => SizedBox(
-                height: 180,
-                child: ListView.builder(
-                  itemCount: apps.length,
-                  itemBuilder: (context, index) {
-                    final app = apps[index];
-                    final selected =
-                        settings.splitTunnel.selectedPackages.contains(app.packageName);
-                    return CheckboxListTile(
-                      title: Text(app.appName),
-                      subtitle: Text(app.packageName),
-                      value: selected,
-                      onChanged: (value) {
-                        final packages = {...settings.splitTunnel.selectedPackages};
-                        if (value == true) {
-                          packages.add(app.packageName);
-                        } else {
-                          packages.remove(app.packageName);
-                        }
-                        controller.setSelectedPackages(packages);
-                      },
-                    );
-                  },
-                ),
-              ),
-              loading: () => const Padding(
-                padding: EdgeInsets.all(16),
-                child: CircularProgressIndicator(),
-              ),
-              error: (err, stack) => Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text('Unable to load apps: $err'),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AutoConnectSection extends StatelessWidget {
-  const _AutoConnectSection({required this.settings, required this.controller});
-
-  final SettingsState settings;
-  final SettingsController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          SwitchListTile.adaptive(
-            value: settings.autoConnect.connectOnLaunch,
-            title: const Text('Connect on launch'),
-            onChanged: (value) {
-              controller.setAutoConnect(onLaunch: value);
-            },
-          ),
-          SwitchListTile.adaptive(
-            value: settings.autoConnect.connectOnBoot,
-            title: const Text('Connect on device boot'),
-            onChanged: (value) {
-              controller.setAutoConnect(onBoot: value);
-            },
-          ),
-          SwitchListTile.adaptive(
-            value: settings.autoConnect.reconnectOnNetworkChange,
-            title: const Text('Reconnect on network change'),
-            onChanged: (value) {
-              controller.setAutoConnect(onNetworkChange: value);
-            },
-          ),
-          SwitchListTile.adaptive(
-            value: settings.batterySaverEnabled,
-            title: const Text('Battery saver mode'),
-            subtitle: const Text('Reduce background polling to save power'),
-            onChanged: (value) {
-              controller.setBatterySaver(value);
-            },
-          ),
-          SwitchListTile.adaptive(
-            value: settings.networkQualityMonitoring,
-            title: const Text('Network quality monitoring'),
-            subtitle: const Text('Detect packet loss and suggest faster servers'),
-            onChanged: (value) {
-              controller.setNetworkQuality(value);
-            },
+  Future<void> _createBackup(BuildContext context) async {
+    final l10n = context.l10n;
+    await ref.read(hapticsServiceProvider).selection();
+    final backupService = ref.read(preferencesBackupServiceProvider);
+    final backup = await backupService.export();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.settingsCreateBackup),
+        content: SelectableText(backup),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n.close),
           ),
         ],
       ),
     );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l10n.snackbarBackupCopied)));
   }
-}
 
-class _AppearanceSection extends StatelessWidget {
-  const _AppearanceSection({required this.settings, required this.controller});
-
-  final SettingsState settings;
-  final SettingsController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final swatches = <String, Color>{
-      'lavender': const Color(0xFFA78BFA),
-      'aqua': const Color(0xFF38BDF8),
-      'sunrise': const Color(0xFFF59E0B),
-      'forest': const Color(0xFF22C55E),
-    };
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: swatches.entries.map((entry) {
-          final isSelected = entry.key == settings.accentSeed;
-          return GestureDetector(
-            onTap: () {
-              controller.setAccentSeed(entry.key);
-            },
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: entry.value,
-                border: Border.all(
-                  color: isSelected
-                      ? theme.colorScheme.onPrimary
-                      : Colors.white24,
-                  width: isSelected ? 3 : 1,
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _PrivacySection extends StatelessWidget {
-  const _PrivacySection({required this.ref});
-
-  final WidgetRef ref;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Data controls', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 12),
+  Future<void> _restoreBackup(BuildContext context) async {
+    final l10n = context.l10n;
+    await ref.read(hapticsServiceProvider).selection();
+    final backupService = ref.read(preferencesBackupServiceProvider);
+    _restoreController.clear();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.settingsRestore),
+        content: TextField(
+          controller: _restoreController,
+          decoration: const InputDecoration(hintText: 'Paste backup code'),
+          minLines: 2,
+          maxLines: 4,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.close),
+          ),
           ElevatedButton(
-            onPressed: () {
-              ref.read(connectionHistoryProvider.notifier).clear();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Connection history cleared.')),
-              );
-            },
-            child: const Text('Clear connection history'),
-          ),
-          const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: () {
-              ref
-                  .read(serverCatalogProvider.notifier)
-                  .clearFavorites();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Favorites cleared.')),
-              );
-            },
-            child: const Text('Clear favorites'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l10n.settingsRestore),
           ),
         ],
       ),
     );
+    if (result == true && _restoreController.text.trim().isNotEmpty) {
+      try {
+        await backupService.restore(_restoreController.text.trim());
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l10n.snackbarRestoreComplete)));
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l10n.snackbarRestoreFailed)));
+      }
+    }
+  }
+
+  Future<void> _showAddReferralDialog(BuildContext context) async {
+    final l10n = context.l10n;
+    await ref.read(hapticsServiceProvider).selection();
+    final controller = TextEditingController();
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.settingsAddReferral),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Friend code'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n.close),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: Text(l10n.ok),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result.isNotEmpty) {
+      await ref.read(referralControllerProvider.notifier).addReferral(result);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l10n.snackbarReferralAdded)));
+    }
+  }
+
+  Future<void> _showLimitDialog(BuildContext context, int? currentLimit) async {
+    final l10n = context.l10n;
+    final controller = TextEditingController(
+      text: currentLimit != null
+          ? (currentLimit / (1024 * 1024 * 1024)).toStringAsFixed(2)
+          : '',
+    );
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.settingsUsageLimit),
+        content: TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(hintText: 'GB'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n.close),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: Text(l10n.ok),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      final trimmed = result.trim();
+      int? bytes;
+      if (trimmed.isNotEmpty) {
+        final parsed = double.tryParse(trimmed);
+        if (parsed != null && parsed > 0) {
+          bytes = (parsed * 1024 * 1024 * 1024).round();
+        }
+      }
+      await ref
+          .read(dataUsageControllerProvider.notifier)
+          .setMonthlyLimit(bytes);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l10n.snackbarLimitSaved)));
+    }
+  }
+
+  Future<void> _handleLimitTap(BuildContext context, int? currentLimit) async {
+    await ref.read(hapticsServiceProvider).selection();
+    await _showLimitDialog(context, currentLimit);
+  }
+
+  Future<void> _handleResetUsage() async {
+    await ref.read(hapticsServiceProvider).selection();
+    await ref.read(dataUsageControllerProvider.notifier).resetUsage();
   }
 }
