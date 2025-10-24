@@ -1,0 +1,14 @@
+{
+  "download": [
+    "https://speed.hetzner.de/100MB.bin",
+    "https://speed.cloudflare.com/__down?bytes=100000000"
+  ],
+  "upload": [
+    "https://speed.cloudflare.com/__up"
+  ],
+  "ping": [
+    "https://1.1.1.1/",
+    "https://8.8.8.8/"
+  ],
+  "ip": "https://api64.ipify.org?format=text"
+}
