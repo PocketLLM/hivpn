@@ -42,3 +42,7 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    implementation("com.wireguard.android:tunnel:1.0.20230706")
+}
