@@ -123,9 +123,8 @@ class SettingsController extends StateNotifier<SettingsState> {
       {required Server? server, required Map<String, dynamic> stats}) async {
     if (server == null) return;
     final history = _ref.read(connectionHistoryProvider.notifier);
-    final startedAt = session.start ?? DateTime.now().toUtc();
-    final duration = session.duration ?? Duration.zero;
-    final endedAt = startedAt.add(duration);
+    final startedAt = session.start!;
+    final endedAt = DateTime.now().toUtc();
     final bytesRx = (stats['rxBytes'] as num?)?.toInt() ?? 0;
     final bytesTx = (stats['txBytes'] as num?)?.toInt() ?? 0;
     await history.addRecord(

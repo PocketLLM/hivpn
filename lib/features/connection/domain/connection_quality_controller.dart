@@ -106,16 +106,11 @@ class ConnectionQualityController
     }
 
     state = state.copyWith(isSwitching: true);
-    _ref.read(selectedServerProvider.notifier).select(target);
-    try {
-      await _ref.read(sessionControllerProvider.notifier).switchServer(target);
-      state = state.copyWith(
-        lastSwitch: DateTime.now(),
-        isSwitching: false,
-      );
-    } catch (_) {
-      state = state.copyWith(isSwitching: false);
-    }
+    await _ref.read(sessionControllerProvider.notifier).switchServer(target);
+    state = state.copyWith(
+      lastSwitch: DateTime.now(),
+      isSwitching: false,
+    );
   }
 
   Server? _chooseNextServer(List<Server> servers, Server? current) {

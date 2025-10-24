@@ -21,33 +21,30 @@ class ServerPickerSheet extends ConsumerWidget {
     final isConnected = sessionState.status == SessionStatus.connected;
     final servers = catalog.sortedServers;
 
-    if (servers.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    final serversAsyncValue = ref.watch(serversAsync);
 
-    return ListView.builder(
-      itemCount: servers.length,
-      itemBuilder: (context, index) {
-        final server = servers[index];
-        return ServerTile(
-          server: server,
-          selected: selectedServer?.id == server.id,
-          latencyMs: catalog.latencyMs[server.id],
-          isFavorite: catalog.favorites.contains(server.id),
-          onFavoriteToggle: () {
-            unawaited(
-              ref.read(serverCatalogProvider.notifier).toggleFavorite(server),
-            );
-          },
-          onTap: isConnected
-              ? null
-              : () {
-                  unawaited(ref.read(hapticsServiceProvider).selection());
-                  ref.read(selectedServerProvider.notifier).select(server);
-                  Navigator.of(context).pop();
-                },
-        );
-      },
+    return serversAsyncValue.when(
+      data: (servers) => ListView.builder(
+        itemCount: servers.length,
+        itemBuilder: (context, index) {
+          final server = servers[index];
+          return ServerTile(
+            server: server,
+            selected: selectedServer?.id == server.id,
+            onTap: isConnected
+                ? null
+                : () {
+                    unawaited(ref.read(hapticsServiceProvider).selection());
+                    ref.read(selectedServerProvider.notifier).select(server);
+                    Navigator.of(context).pop();
+                  },
+          );
+        },
+      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(
+        child: Text('Failed to load servers: $err'),
+      ),
     );
   }
 }

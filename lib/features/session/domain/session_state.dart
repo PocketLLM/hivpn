@@ -18,7 +18,11 @@ class SessionState with _$SessionState {
       toJson: _durationToJson,
     )
     Duration? duration,
+    int? startElapsedMs,
     String? serverId,
+    String? serverName,
+    String? countryCode,
+    String? publicIp,
     String? errorMessage,
     @JsonKey(ignore: true) WgConfig? config,
     @Default(false) bool expired,

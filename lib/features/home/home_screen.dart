@@ -75,7 +75,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       targets: steps.map((step) => step.toTarget()).toList(),
     );
     await _spotlightController?.show(
-      context,
+      context: context,
       onFinish: () => _completeTour(prefs),
       onSkip: () => _completeTour(prefs),
     );
@@ -172,6 +172,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
     final catalog = ref.watch(serverCatalogProvider);
     final selectedServer = ref.watch(selectedServerProvider);
+    final serversAsyncValue = ref.watch(serversAsync);
     final speedState = ref.watch(speedTestControllerProvider);
     final usageState = ref.watch(dataUsageControllerProvider);
     final theme = Theme.of(context);
@@ -287,34 +288,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 12),
           KeyedSubtree(
             key: _serverCarouselKey,
-            child: SizedBox(
-              height: 160,
-              child: servers.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: servers.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 16),
-                      itemBuilder: (context, index) {
-                        final server = servers[index];
-                        final selected = selectedServer?.id == server.id;
-                        return _ServerCard(
-                          server: server,
-                          selected: selected,
-                          connected: isConnected && selected,
-                          latency: catalog.latencyMs[server.id],
-                          onTap: isConnected
-                              ? null
-                              : () {
-                                  unawaited(
-                                      ref.read(hapticsServiceProvider).selection());
-                                  ref
-                                      .read(selectedServerProvider.notifier)
-                                      .select(server);
-                                },
-                        );
-                      },
-                    ),
+            child: serversAsyncValue.when(
+              data: (servers) => SizedBox(
+                height: 140,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: servers.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 16),
+                  itemBuilder: (context, index) {
+                    final server = servers[index];
+                    final selected = selectedServer?.id == server.id;
+                    final latency = catalog.latencyMs[server.id];
+                    return _ServerCard(
+                      server: server,
+                      selected: selected,
+                      connected: isConnected && selected,
+                      onTap: isConnected
+                          ? null
+                          : () {
+                              unawaited(
+                                  ref.read(hapticsServiceProvider).selection());
+                              ref
+                                  .read(selectedServerProvider.notifier)
+                                  .select(server);
+                            },
+                      latency: latency,
+                    );
+                  },
+                ),
+              ),
+              loading: () => const SizedBox(
+                height: 140,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, __) => Text('${l10n.failedToLoadServers}: $error'),
             ),
           ),
           const SizedBox(height: 32),
@@ -657,7 +664,6 @@ class _ServerCard extends StatelessWidget {
       selected ? theme.colorScheme.secondary : theme.colorScheme.primaryContainer,
       opacity: selected ? 0.22 : 0.12,
     );
-    final latencyLabel = latency != null ? '${latency!} ms' : '—';
     final statusLabel = connected
         ? l10n.badgeConnected
         : selected
@@ -665,9 +671,11 @@ class _ServerCard extends StatelessWidget {
             : l10n.badgeConnect;
     final statusColor = connected
         ? HiVpnColors.success
-        : theme.colorScheme.onSurface.withOpacity(0.8);
+        : theme.colorScheme.onSurface.withOpacity(0.85);
+    final latencyText = latency != null ? '${latency!} ms' : '--';
 
     return InkWell(
+      borderRadius: BorderRadius.circular(24),
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Container(
@@ -677,7 +685,9 @@ class _ServerCard extends StatelessWidget {
           color: cardColor,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: selected ? theme.colorScheme.secondary : Colors.white10,
+            color: selected
+                ? theme.colorScheme.secondary
+                : theme.colorScheme.onSurface.withOpacity(0.08),
           ),
         ),
         child: Column(
@@ -692,31 +702,31 @@ class _ServerCard extends StatelessWidget {
               server.name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
-              '${l10n.latencyLabel} $latencyLabel',
+              '${l10n.latencyLabel}: $latencyText',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
             const Spacer(),
             Align(
-              alignment: Alignment.bottomRight,
+              alignment: Alignment.bottomLeft,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: connected
-                      ? HiVpnColors.success.withOpacity(0.12)
-                      : theme.colorScheme.surface.withOpacity(0.6),
+                  color: statusColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   statusLabel,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: statusColor,
                     fontWeight: FontWeight.w600,
+                    color: statusColor,
                   ),
                 ),
               ),

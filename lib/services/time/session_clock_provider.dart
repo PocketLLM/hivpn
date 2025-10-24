@@ -6,9 +6,5 @@ import '../vpn/vpn_port.dart';
 import 'session_clock.dart';
 
 final sessionClockProvider = Provider<SessionClock>((ref) {
-  if (defaultTargetPlatform == TargetPlatform.android) {
-    final VpnPort port = ref.watch(vpnPortProvider);
-    return SessionClock(() => port.elapsedRealtime());
-  }
-  return SessionClock(() async => DateTime.now().millisecondsSinceEpoch);
+  return SessionClock();
 });

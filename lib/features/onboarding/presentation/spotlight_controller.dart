@@ -9,8 +9,8 @@ class SpotlightController {
   final List<TargetFocus> targets;
   TutorialCoachMark? _coachMark;
 
-  Future<void> show(
-    BuildContext context, {
+  Future<void> show({
+    required BuildContext context,
     VoidCallback? onFinish,
     VoidCallback? onSkip,
   }) async {

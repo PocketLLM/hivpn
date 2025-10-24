@@ -15,13 +15,8 @@ class MainActivity : FlutterActivity() {
     private val channelName = "com.example.vpn/VpnChannel"
     private val prepareRequestCode = 1001
     private var prepareResult: MethodChannel.Result? = null
-    private var pendingIntentAction: String? = null
-    private lateinit var vpnChannel: MethodChannel
-
-    companion object {
-        private const val EXTRA_NOTIFICATION_ACTION = "notification_action"
-        private const val ACTION_SHOW_EXTEND_AD = "SHOW_EXTEND_AD"
-    }
+    private var pendingExtendIntent = false
+    private lateinit var methodChannel: MethodChannel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,15 +25,37 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        vpnChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
-        vpnChannel.setMethodCallHandler { call, result ->
-            when (call.method) {
-                "prepare" -> handlePrepare(result)
-                "connect" -> {
-                    val config = JSONObject(call.arguments as Map<*, *>).toString()
-                    WireGuardService.requestConnect(this, config)
-                    HiVpnTileService.requestTileUpdate(this)
-                    result.success(true)
+        methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
+        methodChannel.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "prepare" -> handlePrepare(result)
+                    "connect" -> {
+                        val config = JSONObject(call.arguments as Map<*, *>).toString()
+                        WireGuardService.requestConnect(this, config)
+                        HiVpnTileService.requestTileUpdate(this)
+                        result.success(true)
+                    }
+                    "disconnect" -> {
+                        WireGuardService.requestDisconnect(this)
+                        HiVpnTileService.requestTileUpdate(this)
+                        result.success(null)
+                    }
+                    "isConnected" -> result.success(WireGuardService.isActive())
+                    "getTunnelStats" -> result.success(WireGuardService.currentStats())
+                    "getInstalledApps" -> result.success(fetchInstalledApps())
+                    "updateQuickTile" -> {
+                        HiVpnTileService.requestTileUpdate(this)
+                        result.success(null)
+                    }
+                    "elapsedRealtime" -> result.success(SystemClock.elapsedRealtime())
+                    "extendSession" -> {
+                        val args = call.arguments as Map<*, *>
+                        val duration = (args["durationMs"] as Number).toLong()
+                        val ip = args["publicIp"] as String?
+                        WireGuardService.extendSession(this, duration, ip)
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
                 }
                 "disconnect" -> {
                     WireGuardService.requestDisconnect(this)
@@ -63,8 +80,10 @@ class MainActivity : FlutterActivity() {
                 }
                 else -> result.notImplemented()
             }
+
+        if (intent?.action == ACTION_SHOW_EXTEND_AD || pendingExtendIntent) {
+            dispatchExtendRequest()
         }
-        deliverPendingIntentAction()
     }
 
     private fun handlePrepare(result: MethodChannel.Result) {
@@ -88,7 +107,18 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleIntentAction(intent)
+        if (intent.action == ACTION_SHOW_EXTEND_AD) {
+            dispatchExtendRequest()
+        }
+    }
+
+    private fun dispatchExtendRequest() {
+        if (::methodChannel.isInitialized) {
+            methodChannel.invokeMethod("showExtendAd", null)
+            pendingExtendIntent = false
+        } else {
+            pendingExtendIntent = true
+        }
     }
 
     private fun fetchInstalledApps(): List<Map<String, String>> {
@@ -105,22 +135,7 @@ class MainActivity : FlutterActivity() {
             .sortedBy { it["name"] }
     }
 
-    private fun handleIntentAction(intent: Intent?) {
-        val action = intent?.getStringExtra(EXTRA_NOTIFICATION_ACTION) ?: intent?.action
-        if (action == ACTION_SHOW_EXTEND_AD) {
-            if (this::vpnChannel.isInitialized) {
-                vpnChannel.invokeMethod("notifyIntentAction", action)
-            } else {
-                pendingIntentAction = action
-            }
-        }
-    }
-
-    private fun deliverPendingIntentAction() {
-        val action = pendingIntentAction ?: return
-        if (this::vpnChannel.isInitialized) {
-            vpnChannel.invokeMethod("notifyIntentAction", action)
-            pendingIntentAction = null
-        }
+    companion object {
+        const val ACTION_SHOW_EXTEND_AD = "com.example.hivpn.action.SHOW_EXTEND_AD"
     }
 }

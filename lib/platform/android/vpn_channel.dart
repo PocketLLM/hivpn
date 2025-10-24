@@ -72,16 +72,10 @@ class AndroidVpnChannel implements VpnPort {
   }
 
   @override
-  Future<int> elapsedRealtime() async {
-    final result = await _channel.invokeMethod<int>('elapsedRealtime');
-    return result ?? DateTime.now().millisecondsSinceEpoch;
-  }
-
-  @override
-  Future<void> extendSession({required int additionalDurationMs, String? ip}) async {
+  Future<void> extendSession(Duration duration, {String? publicIp}) async {
     await _channel.invokeMethod<void>('extendSession', {
-      'additionalDurationMs': additionalDurationMs,
-      'ip': ip,
+      'durationMs': duration.inMilliseconds,
+      if (publicIp != null) 'publicIp': publicIp,
     });
   }
 }

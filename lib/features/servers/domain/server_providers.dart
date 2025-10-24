@@ -1,19 +1,38 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'server.dart';
-import 'server_catalog_controller.dart' as catalog;
-import 'server_selection.dart' as selection;
+import 'server_catalog_controller.dart';
+import 'server_selection.dart';
 
-export 'server_catalog_controller.dart'
-    show ServerCatalogController, ServerCatalogState;
-export 'server_selection.dart' show ServerSelectionNotifier;
+final serverCatalogProvider =
+    StateNotifierProvider<ServerCatalogController, ServerCatalogState>((ref) {
+  return ServerCatalogController(ref);
+});
 
-final StateNotifierProvider<ServerCatalogController, ServerCatalogState>
-    serverCatalogProvider = catalog.serverCatalogProvider;
-final StateNotifierProvider<ServerSelectionNotifier, Server?>
-    selectedServerProvider = selection.selectedServerProvider;
+/// Alias retained for legacy imports that still expect [serverCatalogProvider].
+final serverCatalogStateProvider = serverCatalogProvider;
 
-final Provider<List<Server>> serversProvider = Provider<List<Server>>((ref) {
+final serversProvider = Provider<List<Server>>((ref) {
   final state = ref.watch(serverCatalogProvider);
   return state.sortedServers;
+});
+
+final serversAsync = Provider<AsyncValue<List<Server>>>((ref) {
+  final state = ref.watch(serverCatalogProvider);
+  if (state.isLoading) {
+    return const AsyncValue.loading();
+  }
+  if (state.error != null) {
+    return AsyncValue.error(state.error!, StackTrace.current);
+  }
+  return AsyncValue.data(state.sortedServers);
+});
+
+final selectedServerProvider =
+    StateNotifierProvider<ServerSelectionNotifier, Server?>((ref) {
+  return ServerSelectionNotifier(ref, serverCatalogProvider);
+});
+
+final serverLatencyProvider = Provider<Map<String, int>>((ref) {
+  return ref.watch(serverCatalogProvider).latencyMs;
 });

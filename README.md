@@ -53,8 +53,8 @@ All business logic lives in controllers and services. Widgets receive the data t
 
 ### Android build notes
 
-* The app includes a foreground `VpnService` shell (`WireGuardService`) that exposes a `MethodChannel` (`com.example.vpn/VpnChannel`). The native layer owns the persistent telemetry notification (channel `hivpn.tunnel`) with 1 Hz updates while interactive, ~15 s updates in doze, and actions to disconnect or return to Flutter for an “extend session” ad gate.
-* Kotlin Gradle plugin 2.1.0 ships with AGP 8.7.0. Upgrade your local Android Studio/Gradle wrapper if builds warn about the Kotlin toolchain.
+* The app includes a foreground `VpnService` shell (`WireGuardService`) that exposes a `MethodChannel` (`com.example.vpn/VpnChannel`). The native layer currently starts a persistent notification and is the place to finish the WireGuard backend wiring.
+* Android Gradle Plugin 8.7.0 with Kotlin 2.1.0 is configured in `android/settings.gradle.kts`. Align your local toolchain to those versions to avoid dependency validation warnings.
 * Rewarded ads use Google test identifiers (`ca-app-pub-3940256099942544/5224354917`). Replace with production IDs before release.
 * Update `android/app/src/main/AndroidManifest.xml` with your final AdMob app ID and consider requesting the `POST_NOTIFICATIONS` runtime permission on Android 13+ if the notification should be dismissible.
 * Sensitive tunnel material never lands in plain `SharedPreferences`. The Dart layer keeps the WireGuard private key in `flutter_secure_storage` and only serialises a `SessionMeta` (server id/name, ISO country code, monotonic start/duration) for restore. The Kotlin side mirrors that metadata in memory for notification telemetry.
@@ -68,8 +68,8 @@ iOS is deferred for this MVP. The Flutter layer relies on an abstract `VpnPort` 
 
 1. On first launch the app loads `assets/servers.json` to populate the server catalogue.
 2. Users tap **Connect**, triggering a rewarded ad via `RewardedAdService`. A successful reward unlocks a 60-minute session.
-3. The session controller stores a lightweight `SessionMeta` (server id/name, country code, monotonic start/duration) in SharedPreferences and the WireGuard private key in secure storage; full configs never leave memory.
-4. A persistent countdown updates from the platform monotonic clock; if the app is backgrounded or relaunched, the countdown restores from persisted state without wall-clock drift.
+3. The session controller stores only non-sensitive session metadata (server ID/name, country flag, monotonic start/duration) in `SharedPreferences`. The WireGuard private key stays exclusively in the Android keystore via `flutter_secure_storage`.
+4. A persistent countdown updates from monotonic wall-clock math; if the app is backgrounded or relaunched, the countdown restores from persisted state.
 5. After 60 minutes the controller disconnects and prompts the user to watch another ad.
 
 Manual disconnects stop the tunnel immediately; remaining time is discarded.
@@ -95,7 +95,14 @@ The second tab runs latency, download, and upload checks using the endpoints def
 
 ## Foreground notification & quick tile
 
-The Android foreground service posts updates on channel `hivpn.tunnel` with a live countdown sourced from `SystemClock.elapsedRealtime()`, the server’s flag/country, current IP, and actions to disconnect immediately or jump back into Flutter to watch an “extend” rewarded ad (which adds 60 minutes without re-dialling). While the screen is interactive the notification refreshes every second; when idle it throttles to ~15 s cadence. Capture a device screenshot of the notification on your QA build and place it under `assets/reference/` for release documentation.
+The Android foreground service posts updates on channel `hivpn.tunnel` with a live countdown, country flag, and actions to disconnect or extend (by returning to the app for a fresh ad).
+
+Notification QA checklist:
+
+- [ ] Capture a screenshot of the foreground notification showing flag + country, countdown (`mm:ss`), and IP line.
+- [ ] Verify the **Disconnect** action tears down the tunnel immediately.
+- [ ] Verify the **Extend** action launches the rewarded extend flow without forcing a reconnect.
+- [ ] Store the validated screenshot under `assets/reference/` for documentation parity.
 
 Android 7.0+ devices also get a Quick Settings tile (`HiVPN`) that mirrors the session state and can toggle the tunnel. The tile reuses the persisted WireGuard JSON so auto-connect rules (boot/network change) stay honoured even when the Flutter layer is cold.
 
@@ -124,7 +131,7 @@ Complete the Kotlin service by applying the `GoBackend` API from the WireGuard t
 Yes. The project uses Google’s official test ad unit IDs, so you can exercise the flow without risking policy violations. Swap to production IDs when you are ready to submit.
 
 **Where is the private key stored?**
-The controller persists the generated private key via `flutter_secure_storage` under the key `wg_private_key`. Clearing app data regenerates a new keypair on the next connection.
+The controller persists the generated private key via `flutter_secure_storage` under the key `wg_private_key`. SharedPreferences now only keep high-level session metadata (no full configs or private material). Clearing app data regenerates a new keypair on the next connection.
 
 **How do I reset favourites or history?**
 Visit **Settings → Privacy** and tap the respective clear buttons. Favourites update immediately in the carousel and history wipes the timeline plus cached stats.

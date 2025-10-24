@@ -18,9 +18,10 @@ class WgConfig {
     this.connectOnAppLaunch = false,
     this.connectOnBoot = false,
     this.reconnectOnNetworkChange = false,
-    this.sessionServerId,
-    this.sessionServerName,
-    this.sessionCountryCode,
+    this.serverId,
+    this.serverName,
+    this.countryCode,
+    this.publicIp,
     this.sessionStartElapsedMs,
     this.sessionDurationMs,
   });
@@ -41,9 +42,10 @@ class WgConfig {
   final bool connectOnAppLaunch;
   final bool connectOnBoot;
   final bool reconnectOnNetworkChange;
-  final String? sessionServerId;
-  final String? sessionServerName;
-  final String? sessionCountryCode;
+  final String? serverId;
+  final String? serverName;
+  final String? countryCode;
+  final String? publicIp;
   final int? sessionStartElapsedMs;
   final int? sessionDurationMs;
 
@@ -64,9 +66,10 @@ class WgConfig {
     bool? connectOnAppLaunch,
     bool? connectOnBoot,
     bool? reconnectOnNetworkChange,
-    String? sessionServerId,
-    String? sessionServerName,
-    String? sessionCountryCode,
+    String? serverId,
+    String? serverName,
+    String? countryCode,
+    String? publicIp,
     int? sessionStartElapsedMs,
     int? sessionDurationMs,
   }) {
@@ -89,9 +92,10 @@ class WgConfig {
       connectOnBoot: connectOnBoot ?? this.connectOnBoot,
       reconnectOnNetworkChange:
           reconnectOnNetworkChange ?? this.reconnectOnNetworkChange,
-      sessionServerId: sessionServerId ?? this.sessionServerId,
-      sessionServerName: sessionServerName ?? this.sessionServerName,
-      sessionCountryCode: sessionCountryCode ?? this.sessionCountryCode,
+      serverId: serverId ?? this.serverId,
+      serverName: serverName ?? this.serverName,
+      countryCode: countryCode ?? this.countryCode,
+      publicIp: publicIp ?? this.publicIp,
       sessionStartElapsedMs:
           sessionStartElapsedMs ?? this.sessionStartElapsedMs,
       sessionDurationMs: sessionDurationMs ?? this.sessionDurationMs,
@@ -116,9 +120,10 @@ class WgConfig {
       'connectOnAppLaunch': connectOnAppLaunch,
       'connectOnBoot': connectOnBoot,
       'reconnectOnNetworkChange': reconnectOnNetworkChange,
-      'sessionServerId': sessionServerId,
-      'sessionServerName': sessionServerName,
-      'sessionCountryCode': sessionCountryCode,
+      'serverId': serverId,
+      'serverName': serverName,
+      'countryCode': countryCode,
+      'publicIp': publicIp,
       'sessionStartElapsedMs': sessionStartElapsedMs,
       'sessionDurationMs': sessionDurationMs,
     };
@@ -150,9 +155,10 @@ class WgConfig {
       connectOnBoot: json['connectOnBoot'] as bool? ?? false,
       reconnectOnNetworkChange:
           json['reconnectOnNetworkChange'] as bool? ?? false,
-      sessionServerId: json['sessionServerId'] as String?,
-      sessionServerName: json['sessionServerName'] as String?,
-      sessionCountryCode: json['sessionCountryCode'] as String?,
+      serverId: json['serverId'] as String?,
+      serverName: json['serverName'] as String?,
+      countryCode: json['countryCode'] as String?,
+      publicIp: json['publicIp'] as String?,
       sessionStartElapsedMs: (json['sessionStartElapsedMs'] as num?)?.toInt(),
       sessionDurationMs: (json['sessionDurationMs'] as num?)?.toInt(),
     );
