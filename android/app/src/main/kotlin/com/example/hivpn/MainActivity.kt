@@ -27,35 +27,13 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
         methodChannel.setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "prepare" -> handlePrepare(result)
-                    "connect" -> {
-                        val config = JSONObject(call.arguments as Map<*, *>).toString()
-                        WireGuardService.requestConnect(this, config)
-                        HiVpnTileService.requestTileUpdate(this)
-                        result.success(true)
-                    }
-                    "disconnect" -> {
-                        WireGuardService.requestDisconnect(this)
-                        HiVpnTileService.requestTileUpdate(this)
-                        result.success(null)
-                    }
-                    "isConnected" -> result.success(WireGuardService.isActive())
-                    "getTunnelStats" -> result.success(WireGuardService.currentStats())
-                    "getInstalledApps" -> result.success(fetchInstalledApps())
-                    "updateQuickTile" -> {
-                        HiVpnTileService.requestTileUpdate(this)
-                        result.success(null)
-                    }
-                    "elapsedRealtime" -> result.success(SystemClock.elapsedRealtime())
-                    "extendSession" -> {
-                        val args = call.arguments as Map<*, *>
-                        val duration = (args["durationMs"] as Number).toLong()
-                        val ip = args["publicIp"] as String?
-                        WireGuardService.extendSession(this, duration, ip)
-                        result.success(null)
-                    }
-                    else -> result.notImplemented()
+            when (call.method) {
+                "prepare" -> handlePrepare(result)
+                "connect" -> {
+                    val config = JSONObject(call.arguments as Map<*, *>).toString()
+                    WireGuardService.requestConnect(this, config)
+                    HiVpnTileService.requestTileUpdate(this)
+                    result.success(true)
                 }
                 "disconnect" -> {
                     WireGuardService.requestDisconnect(this)
@@ -71,18 +49,21 @@ class MainActivity : FlutterActivity() {
                 }
                 "elapsedRealtime" -> result.success(SystemClock.elapsedRealtime())
                 "extendSession" -> {
-                    val args = call.arguments as? Map<*, *>
-                    val additionalDuration =
-                        (args?.get("additionalDurationMs") as? Number)?.toLong() ?: 0L
-                    val ip = args?.get("ip") as? String
-                    WireGuardService.extendSession(additionalDuration, ip)
+                    val args = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
+                    val duration = (args["durationMs"] as? Number)?.toLong() ?: 0L
+                    val ip = args["publicIp"] as? String
+                    WireGuardService.extendSession(this, duration, ip)
                     result.success(null)
                 }
                 else -> result.notImplemented()
             }
+        }
 
-        if (intent?.action == ACTION_SHOW_EXTEND_AD || pendingExtendIntent) {
+        if (pendingExtendIntent) {
+            methodChannel.invokeMethod("notifyIntentAction", ACTION_SHOW_EXTEND_AD)
             dispatchExtendRequest()
+        } else {
+            handleIntentAction(intent)
         }
     }
 
@@ -107,7 +88,25 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.action == ACTION_SHOW_EXTEND_AD) {
+        handleIntentAction(intent)
+    }
+
+    private fun handleIntentAction(intent: Intent?) {
+        if (intent == null) return
+        val action = intent.action
+            ?: intent.getStringExtra(WireGuardService.EXTRA_NOTIFICATION_ACTION)
+            ?: return
+
+        if (!::methodChannel.isInitialized) {
+            if (action == ACTION_SHOW_EXTEND_AD) {
+                pendingExtendIntent = true
+            }
+            return
+        }
+
+        methodChannel.invokeMethod("notifyIntentAction", action)
+
+        if (action == ACTION_SHOW_EXTEND_AD) {
             dispatchExtendRequest()
         }
     }
