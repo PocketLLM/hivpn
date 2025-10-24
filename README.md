@@ -13,8 +13,10 @@ lib/
   platform/           # Method channel bridges (Android)
   features/
     home/             # Home screen and primary UX
+    history/          # Connection history timeline and metrics
     onboarding/       # Spotlight tour (tutorial_coach_mark)
     servers/          # Server models and asset repository
+    settings/         # Protocol, auto-connect, split tunneling controls
     session/          # Session domain, countdown, controller
     speedtest/        # Speed test controller, UI, and endpoints loader
   widgets/            # Shared UI components
@@ -70,6 +72,17 @@ iOS is deferred for this MVP. The Flutter layer relies on an abstract `VpnPort` 
 
 Manual disconnects stop the tunnel immediately; remaining time is discarded.
 
+### Advanced connection controls
+
+* **Protocol selection** – the Settings tab exposes WireGuard plus placeholders for OpenVPN and IKEv2. Unsupported protocols are surfaced as disabled options so the UI stays future proof.
+* **DNS, MTU, and keepalive tuning** – sliders and chips let power users swap between Cloudflare, Google, or custom DNS pools and adjust WireGuard interface parameters.
+* **Split tunneling** – enable app-based routing and pick which installed packages should traverse the tunnel. The selection persists via secure storage and is surfaced to the Android service for enforcement.
+* **Auto-connect rules** – toggles for launch, boot, and network-change reconnection feed the native receivers so the service comes back up after restarts or network flips.
+
+## Server favourites & latency
+
+HiVPN now keeps a searchable carousel of servers with latency probes (simple TCP connects) and favourite starring. The picker bottom sheet separates favourites from the full list and disables server switching while connected.
+
 ## Guided spotlight tour
 
 The first launch shows a four-step overlay (server carousel, connect control, status pill, Speed Test tab). It uses `tutorial_coach_mark` and only runs once per install (`tour_done` preference). A hidden developer utility can reset the flag by clearing app storage.
@@ -78,9 +91,15 @@ The first launch shows a four-step overlay (server carousel, connect control, st
 
 The second tab runs latency, download, and upload checks using the endpoints defined in `assets/speedtest_endpoints.json`. `SpeedTestService` streams rolling throughput samples every 500 ms and surfaces the smoothed five-sample average in the gauge UI. Results persist locally so users see their last run immediately after relaunching. Update the endpoint list or IP resolver URL as needed for your infrastructure.
 
-## Foreground notification
+## Foreground notification & quick tile
 
 The Android foreground service posts updates on channel `hivpn.tunnel` with a live countdown, country flag, and actions to disconnect or extend (by returning to the app for a fresh ad). Capture a device screenshot of the notification on your QA build and place it under `assets/reference/` for documentation parity.
+
+Android 7.0+ devices also get a Quick Settings tile (`HiVPN`) that mirrors the session state and can toggle the tunnel. The tile reuses the persisted WireGuard JSON so auto-connect rules (boot/network change) stay honoured even when the Flutter layer is cold.
+
+## Connection history
+
+The History tab records every completed session with start/end timestamps, duration, and approximated throughput stats from the native service. A summary card aggregates total time online and combined traffic for the current install.
 
 ## Assets and branding
 
@@ -102,8 +121,11 @@ Complete the Kotlin service by applying the `GoBackend` API from the WireGuard t
 **Can I test rewarded ads without production inventory?**  
 Yes. The project uses Google’s official test ad unit IDs, so you can exercise the flow without risking policy violations. Swap to production IDs when you are ready to submit.
 
-**Where is the private key stored?**  
+**Where is the private key stored?**
 The controller persists the generated private key via `flutter_secure_storage` under the key `wg_private_key`. Clearing app data regenerates a new keypair on the next connection.
 
-**How do I reset the onboarding spotlight?**  
+**How do I reset favourites or history?**
+Visit **Settings → Privacy** and tap the respective clear buttons. Favourites update immediately in the carousel and history wipes the timeline plus cached stats.
+
+**How do I reset the onboarding spotlight?**
 Clear the `tour_done` flag from `SharedPreferences` (via Android settings “Clear storage” or by adding a debug hook). The tour will run again on the next launch.

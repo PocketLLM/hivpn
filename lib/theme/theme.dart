@@ -3,12 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'colors.dart';
 
-ThemeData buildHiVpnTheme() {
-  final colorScheme = const ColorScheme.dark(
+ThemeData buildHiVpnTheme({String accentSeed = 'lavender'}) {
+  final accent = _accentFromSeed(accentSeed);
+  final colorScheme = ColorScheme.dark(
     primary: HiVpnColors.primary,
     onPrimary: HiVpnColors.onPrimary,
     primaryContainer: HiVpnColors.primaryContainer,
-    secondary: HiVpnColors.accent,
+    secondary: accent,
     onSecondary: HiVpnColors.background,
     background: HiVpnColors.background,
     onBackground: HiVpnColors.onSurface,
@@ -72,5 +73,19 @@ extension HiVpnThemeX on ThemeData {
 
   Color pastelCard(Color accent, {double opacity = 0.18}) {
     return Color.alphaBlend(accent.withOpacity(opacity), colorScheme.surface);
+  }
+}
+
+Color _accentFromSeed(String seed) {
+  switch (seed) {
+    case 'aqua':
+      return const Color(0xFF38BDF8);
+    case 'sunrise':
+      return const Color(0xFFF59E0B);
+    case 'forest':
+      return const Color(0xFF22C55E);
+    case 'lavender':
+    default:
+      return HiVpnColors.accent;
   }
 }

@@ -6,6 +6,7 @@ import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import com.example.hivpn.vpn.HiVpnTileService
 import com.example.hivpn.vpn.WireGuardService
 import org.json.JSONObject
 
@@ -26,15 +27,23 @@ class MainActivity : FlutterActivity() {
                     "prepare" -> handlePrepare(result)
                     "connect" -> {
                         val config = JSONObject(call.arguments as Map<*, *>).toString()
+                        WireGuardService.persistLastConfig(this, config)
                         WireGuardService.requestConnect(this, config)
+                        HiVpnTileService.requestTileUpdate(this)
                         result.success(true)
                     }
                     "disconnect" -> {
                         WireGuardService.requestDisconnect(this)
+                        HiVpnTileService.requestTileUpdate(this)
                         result.success(null)
                     }
                     "isConnected" -> result.success(WireGuardService.isActive())
                     "getTunnelStats" -> result.success(WireGuardService.currentStats())
+                    "getInstalledApps" -> result.success(fetchInstalledApps())
+                    "updateQuickTile" -> {
+                        HiVpnTileService.requestTileUpdate(this)
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -56,5 +65,19 @@ class MainActivity : FlutterActivity() {
             prepareResult?.success(resultCode == RESULT_OK)
             prepareResult = null
         }
+    }
+
+    private fun fetchInstalledApps(): List<Map<String, String>> {
+        val pm = packageManager
+        val apps = pm.getInstalledApplications(0)
+        return apps
+            .filter { pm.getLaunchIntentForPackage(it.packageName) != null }
+            .map {
+                mapOf(
+                    "package" to it.packageName,
+                    "name" to pm.getApplicationLabel(it).toString(),
+                )
+            }
+            .sortedBy { it["name"] }
     }
 }

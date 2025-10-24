@@ -22,7 +22,3 @@ final serverRepositoryProvider = Provider<ServerRepository>((ref) {
   return const ServerRepository();
 });
 
-final serversProvider = FutureProvider<List<Server>>((ref) async {
-  final repo = ref.watch(serverRepositoryProvider);
-  return repo.loadServers();
-});

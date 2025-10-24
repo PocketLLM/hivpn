@@ -11,7 +11,6 @@ import '../../widgets/connect_control.dart';
 import '../../widgets/status_pill.dart';
 import '../onboarding/presentation/spotlight_controller.dart';
 import '../onboarding/presentation/spotlight_tour.dart';
-import '../servers/data/server_repository.dart';
 import '../servers/domain/server.dart';
 import '../servers/domain/server_selection.dart';
 import '../servers/presentation/server_picker_sheet.dart';
@@ -21,6 +20,9 @@ import '../session/domain/session_status.dart';
 import '../session/presentation/countdown.dart';
 import '../speedtest/domain/speedtest_controller.dart';
 import '../speedtest/presentation/speedtest_screen.dart';
+import '../history/presentation/history_screen.dart';
+import '../settings/presentation/settings_screen.dart';
+import '../servers/domain/server_catalog_controller.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -42,6 +44,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowSpotlight();
+      ref
+          .read(sessionControllerProvider.notifier)
+          .autoConnectIfEnabled(context: context);
     });
     ref.listen<SessionState>(sessionControllerProvider, _onSessionChanged);
   }
@@ -132,6 +137,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _buildHomeTab(context),
                   const SpeedTestScreen(),
+                  const HistoryScreen(),
+                  const SettingsScreen(),
                 ],
               ),
             ),
@@ -150,7 +157,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ? formatCountdown(session.duration!)
               : '60:00',
         );
-    final serversAsync = ref.watch(serversProvider);
+    final catalog = ref.watch(serverCatalogProvider);
     final selectedServer = ref.watch(selectedServerProvider);
     final speedState = ref.watch(speedTestControllerProvider);
     final theme = Theme.of(context);
@@ -246,34 +253,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 12),
           KeyedSubtree(
             key: _serverCarouselKey,
-            child: serversAsync.when(
-              data: (servers) => SizedBox(
-                height: 140,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: servers.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 16),
-                  itemBuilder: (context, index) {
-                    final server = servers[index];
-                    final selected = selectedServer?.id == server.id;
-                    return _ServerCard(
-                      server: server,
-                      selected: selected,
-                      connected: isConnected && selected,
-                      onTap: isConnected
-                          ? null
-                          : () => ref
-                              .read(selectedServerProvider.notifier)
-                              .select(server),
-                    );
-                  },
-                ),
-              ),
-              loading: () => const SizedBox(
-                height: 140,
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (_, __) => const Text('Failed to load servers'),
+            child: SizedBox(
+              height: 160,
+              child: catalog.sortedServers.isEmpty
+                  ? const Center(child: Text('No servers available'))
+                  : Builder(builder: (context) {
+                      final servers = catalog.sortedServers.take(8).toList();
+                      return ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: servers.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 16),
+                        itemBuilder: (context, index) {
+                          final server = servers[index];
+                          final selected = selectedServer?.id == server.id;
+                          return _ServerCard(
+                            server: server,
+                            selected: selected,
+                            connected: isConnected && selected,
+                            latency: catalog.latencyMs[server.id],
+                            favorite: catalog.favorites.contains(server.id),
+                            onFavorite: () => ref
+                                .read(serverCatalogProvider.notifier)
+                                .toggleFavorite(server),
+                            onTap: isConnected
+                                ? null
+                                : () => ref
+                                    .read(selectedServerProvider.notifier)
+                                    .select(server),
+                          );
+                        },
+                      );
+                    }),
             ),
           ),
           const SizedBox(height: 32),
@@ -377,6 +387,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   selected: _tabIndex == 1,
                   onTap: () => setState(() => _tabIndex = 1),
                 ),
+              ),
+            ),
+            Expanded(
+              child: _NavigationItem(
+                icon: Icons.history,
+                label: 'History',
+                selected: _tabIndex == 2,
+                onTap: () => setState(() => _tabIndex = 2),
+              ),
+            ),
+            Expanded(
+              child: _NavigationItem(
+                icon: Icons.tune,
+                label: 'Settings',
+                selected: _tabIndex == 3,
+                onTap: () => setState(() => _tabIndex = 3),
               ),
             ),
           ],
@@ -522,12 +548,18 @@ class _ServerCard extends StatelessWidget {
     required this.selected,
     required this.connected,
     required this.onTap,
+    this.latency,
+    this.favorite = false,
+    this.onFavorite,
   });
 
   final Server server;
   final bool selected;
   final bool connected;
   final VoidCallback? onTap;
+  final int? latency;
+  final bool favorite;
+  final VoidCallback? onFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -562,35 +594,49 @@ class _ServerCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Latency -- ms',
+              latency != null ? 'Latency ${latency!} ms' : 'Latency --',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
             const Spacer(),
-            Align(
-              alignment: Alignment.bottomRight,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: connected
-                      ? HiVpnColors.success.withOpacity(0.2)
-                      : theme.colorScheme.surface.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  connected
-                      ? 'Connected'
-                      : selected
-                          ? 'Selected'
-                          : 'Connect',
-                  style: theme.textTheme.labelSmall?.copyWith(
+            Row(
+              children: [
+                if (onFavorite != null)
+                  IconButton(
+                    onPressed: onFavorite,
+                    icon: Icon(
+                      favorite ? Icons.star : Icons.star_outline,
+                      color: favorite
+                          ? theme.colorScheme.secondary
+                          : theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  )
+                else
+                  const SizedBox(width: 48),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
                     color: connected
-                        ? HiVpnColors.success
-                        : theme.colorScheme.onSurface.withOpacity(0.8),
+                        ? HiVpnColors.success.withOpacity(0.2)
+                        : theme.colorScheme.surface.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    connected
+                        ? 'Connected'
+                        : selected
+                            ? 'Selected'
+                            : 'Connect',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: connected
+                          ? HiVpnColors.success
+                          : theme.colorScheme.onSurface.withOpacity(0.8),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ],
         ),

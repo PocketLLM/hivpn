@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +15,10 @@ import '../../../services/time/session_clock_provider.dart';
 import '../../../services/vpn/vpn_port.dart';
 import '../../../services/vpn/vpn_provider.dart';
 import '../../../services/vpn/wg_config.dart';
+import '../../settings/domain/settings_controller.dart';
+import '../../settings/domain/split_tunnel_config.dart';
 import '../../servers/domain/server.dart';
+import '../../servers/domain/server_catalog_controller.dart';
 import 'session_state.dart';
 import 'session_status.dart';
 
@@ -27,6 +31,7 @@ class SessionController extends StateNotifier<SessionState> {
       : _vpnPort = _ref.read(vpnPortProvider),
         _adService = _ref.read(rewardedAdServiceProvider),
         _clock = _ref.read(sessionClockProvider),
+        _settings = _ref.read(settingsControllerProvider.notifier),
         super(SessionState.initial()) {
     _bootstrap();
   }
@@ -35,13 +40,18 @@ class SessionController extends StateNotifier<SessionState> {
   final VpnPort _vpnPort;
   final RewardedAdService _adService;
   final SessionClock _clock;
+  final SettingsController _settings;
 
   Timer? _ticker;
+  int _reconnectAttempts = 0;
+  bool _pendingAutoConnect = false;
+  int _tickCounter = 0;
 
   Future<void> _bootstrap() async {
     await _adService.initialize();
     await _restoreSession();
     _startTicker();
+    _pendingAutoConnect = true;
   }
 
   Future<void> _restoreSession() async {
@@ -99,6 +109,14 @@ class SessionController extends StateNotifier<SessionState> {
     if (state.status == SessionStatus.connected) {
       throw const AppError('Already connected.');
     }
+    final settingsState = _ref.read(settingsControllerProvider);
+    if (!settingsState.protocol.protocol.isSupported) {
+      state = state.copyWith(
+        status: SessionStatus.error,
+        errorMessage: 'Protocol not supported yet. Please select WireGuard.',
+      );
+      return;
+    }
     state = state.copyWith(
       status: SessionStatus.preparing,
       errorMessage: null,
@@ -128,13 +146,25 @@ class SessionController extends StateNotifier<SessionState> {
     try {
       final privateKey = await _getOrCreatePrivateKey();
 
+      final dnsServers = settingsState.protocol.resolvedDnsServers;
       final config = WgConfig(
         interfacePrivateKey: privateKey,
+        interfaceDns: dnsServers.isNotEmpty ? dnsServers.join(',') : null,
         peerPublicKey: server.publicKey,
         peerAllowedIps: server.allowedIps,
         peerEndpoint: server.endpoint,
-        peerPersistentKeepalive: server.keepaliveSeconds,
-        mtu: server.mtu,
+        peerPersistentKeepalive: settingsState.protocol.keepaliveSeconds,
+        mtu: settingsState.protocol.mtu,
+        protocol: settingsState.protocol.protocol.name,
+        dnsServers: dnsServers,
+        splitTunnelEnabled: settingsState.splitTunnel.isEnabled,
+        splitTunnelPackages:
+            settingsState.splitTunnel.selectedPackages.toList(),
+        splitTunnelMode: settingsState.splitTunnel.mode.name,
+        connectOnAppLaunch: settingsState.autoConnect.connectOnLaunch,
+        connectOnBoot: settingsState.autoConnect.connectOnBoot,
+        reconnectOnNetworkChange:
+            settingsState.autoConnect.reconnectOnNetworkChange,
       );
 
       final connected = await _vpnPort.connect(config);
@@ -156,6 +186,8 @@ class SessionController extends StateNotifier<SessionState> {
         expired: false,
       );
       await _persistState();
+      await _ref.read(serverCatalogProvider.notifier).rememberSelection(server);
+      _reconnectAttempts = 0;
     } catch (e) {
       state = state.copyWith(
         status: SessionStatus.error,
@@ -165,9 +197,28 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   Future<void> disconnect({bool userInitiated = true}) async {
+    final stats = await _vpnPort.getTunnelStats();
+    final server = _resolveHistoryServer();
     await _vpnPort.disconnect();
+    await _settings.recordSessionEnd(
+      state,
+      server: server,
+      stats: stats,
+    );
     await _clearPersistedState();
     state = SessionState.initial();
+  }
+
+  Server? _resolveHistoryServer() {
+    final id = state.serverId;
+    final catalog = _ref.read(serverCatalogProvider);
+    if (id != null) {
+      final match = catalog.servers.firstWhereOrNull((s) => s.id == id);
+      if (match != null) {
+        return match;
+      }
+    }
+    return _ref.read(selectedServerProvider);
   }
 
   Future<void> _forceDisconnect({bool clearPrefs = false}) async {
@@ -192,6 +243,11 @@ class SessionController extends StateNotifier<SessionState> {
   void _startTicker() {
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) async {
+      _tickCounter += 1;
+      final settings = _ref.read(settingsControllerProvider);
+      if (settings.batterySaverEnabled && _tickCounter % 3 != 0) {
+        return;
+      }
       if (state.status != SessionStatus.connected ||
           state.start == null ||
           state.duration == null) {
@@ -203,8 +259,51 @@ class SessionController extends StateNotifier<SessionState> {
       );
       if (remaining <= Duration.zero) {
         await _forceDisconnect(clearPrefs: true);
+        return;
+      }
+      final connected = await _vpnPort.isConnected();
+      if (!connected &&
+          state.config != null &&
+          settings.autoConnect.reconnectOnNetworkChange) {
+        await _attemptReconnect();
       }
     });
+  }
+
+  Future<void> _attemptReconnect() async {
+    if (state.config == null) return;
+    if (_reconnectAttempts > 5) {
+      state = state.copyWith(
+        status: SessionStatus.error,
+        errorMessage: 'Connection lost. Manual reconnect required.',
+      );
+      return;
+    }
+    _reconnectAttempts += 1;
+    final backoff = Duration(seconds: 2 << (_reconnectAttempts - 1));
+    await Future<void>.delayed(backoff);
+    final success = await _vpnPort.connect(state.config!);
+    if (!success) {
+      return;
+    }
+    _reconnectAttempts = 0;
+  }
+
+  Future<void> autoConnectIfEnabled({required BuildContext context}) async {
+    if (!_pendingAutoConnect) return;
+    _pendingAutoConnect = false;
+    final settings = _ref.read(settingsControllerProvider);
+    if (!settings.autoConnect.connectOnLaunch) {
+      return;
+    }
+    final server = _ref.read(selectedServerProvider);
+    if (server == null) {
+      return;
+    }
+    if (state.status == SessionStatus.connected) {
+      return;
+    }
+    await connect(context: context, server: server);
   }
 
   @override

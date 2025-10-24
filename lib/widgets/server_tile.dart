@@ -10,11 +10,17 @@ class ServerTile extends StatelessWidget {
     required this.server,
     required this.onTap,
     this.selected = false,
+    this.latencyMs,
+    this.onFavoriteToggle,
+    this.isFavorite = false,
   });
 
   final Server server;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool selected;
+  final int? latencyMs;
+  final VoidCallback? onFavoriteToggle;
+  final bool isFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -27,8 +33,27 @@ class ServerTile extends StatelessWidget {
         child: Text(_flagEmoji(server.countryCode)),
       ),
       title: Text(server.name),
-      subtitle: Text('Country: ${server.countryCode.toUpperCase()}'),
-      trailing: const Icon(Icons.chevron_right),
+      subtitle: Text(
+        latencyMs != null
+            ? 'Latency: ${latencyMs!} ms'
+            : 'Country: ${server.countryCode.toUpperCase()}',
+      ),
+      trailing: Wrap(
+        spacing: 8,
+        children: [
+          if (onFavoriteToggle != null)
+            IconButton(
+              icon: Icon(
+                isFavorite ? Icons.star : Icons.star_outline,
+                color: isFavorite
+                    ? theme.colorScheme.secondary
+                    : theme.colorScheme.onSurface.withOpacity(0.5),
+              ),
+              onPressed: onFavoriteToggle,
+            ),
+          const Icon(Icons.chevron_right),
+        ],
+      ),
     );
   }
 
