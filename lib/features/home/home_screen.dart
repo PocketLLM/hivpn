@@ -45,17 +45,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final GlobalKey _speedTabKey = GlobalKey();
   SpotlightController? _spotlightController;
   int _tabIndex = 0;
+  bool _didSchedulePostFrameCallback = false;
 
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didSchedulePostFrameCallback) {
+      return;
+    }
+    _didSchedulePostFrameCallback = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _maybeShowSpotlight();
       ref
           .read(sessionControllerProvider.notifier)
           .autoConnectIfEnabled(context: context);
     });
-    ref.listen<SessionState>(sessionControllerProvider, _onSessionChanged);
   }
 
   @override
@@ -65,11 +75,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _maybeShowSpotlight() async {
+    if (!mounted) return;
     final prefs = await ref.read(prefsStoreProvider.future);
     if (prefs.getBool('tour_done')) {
       return;
     }
     await Future<void>.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
     final l10n = context.l10n;
     final steps = _buildSpotlightSteps(l10n);
     _spotlightController = SpotlightController(
@@ -140,6 +152,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<SessionState>(sessionControllerProvider, _onSessionChanged);
     final l10n = context.l10n;
     return Scaffold(
       body: SafeArea(
