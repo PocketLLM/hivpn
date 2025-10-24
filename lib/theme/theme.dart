@@ -41,7 +41,7 @@ ThemeData buildHiVpnTheme({String accentSeed = 'lavender'}) {
       contentTextStyle: TextStyle(color: colorScheme.onSurface),
       behavior: SnackBarBehavior.floating,
     ),
-    dialogTheme: DialogTheme(
+    dialogTheme: DialogThemeData(
       backgroundColor: colorScheme.surface,
       titleTextStyle: TextStyle(
         color: colorScheme.onSurface,

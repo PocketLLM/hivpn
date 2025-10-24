@@ -16,13 +16,24 @@ class HomeStatusWidget extends ConsumerWidget {
     final quality = ref.watch(connectionQualityControllerProvider);
     final l10n = AppLocalizations.of(context);
 
-    final statusText = switch (session.status) {
-      SessionStatus.connected => l10n.statusConnected,
-      SessionStatus.connecting => l10n.statusConnecting,
-      SessionStatus.preparing => l10n.statusPreparing,
-      SessionStatus.error => l10n.statusError,
-      SessionStatus.disconnected => l10n.statusDisconnected,
-    };
+    late final String statusText;
+    switch (session.status) {
+      case SessionStatus.connected:
+        statusText = l10n.statusConnected;
+        break;
+      case SessionStatus.connecting:
+        statusText = l10n.statusConnecting;
+        break;
+      case SessionStatus.preparing:
+        statusText = l10n.statusPreparing;
+        break;
+      case SessionStatus.error:
+        statusText = l10n.statusError;
+        break;
+      case SessionStatus.disconnected:
+        statusText = l10n.statusDisconnected;
+        break;
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),

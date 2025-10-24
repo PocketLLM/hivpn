@@ -26,8 +26,8 @@ class SessionClock {
   }) async {
     final now = await elapsedRealtime();
     final elapsedMs = now - startElapsedMs;
-    final remaining = duration - Duration(milliseconds: elapsedMs);
-    if (remaining.isNegative) {
+    final remainingMs = duration.inMilliseconds - elapsedMs;
+    if (remainingMs <= 0) {
       return Duration.zero;
     }
     return Duration(milliseconds: remainingMs);
@@ -39,13 +39,13 @@ class SessionClock {
     Duration tick = const Duration(seconds: 1),
   }) async* {
     while (true) {
-      yield await remaining(startElapsedMs: startElapsedMs, duration: duration);
-      await Future<void>.delayed(tick);
-      remainingDuration = await remaining(
-        startElapsedMs: startElapsedMs,
-        duration: duration,
-      );
+      final remainingDuration =
+          await remaining(startElapsedMs: startElapsedMs, duration: duration);
       yield remainingDuration;
+      if (remainingDuration <= Duration.zero) {
+        break;
+      }
+      await Future<void>.delayed(tick);
     }
   }
 }

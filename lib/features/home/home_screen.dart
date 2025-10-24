@@ -675,7 +675,6 @@ class _ServerCard extends StatelessWidget {
     final latencyText = latency != null ? '${latency!} ms' : '--';
 
     return InkWell(
-      borderRadius: BorderRadius.circular(24),
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Container(

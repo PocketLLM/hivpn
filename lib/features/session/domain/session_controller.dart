@@ -15,14 +15,15 @@ import '../../../services/time/session_clock_provider.dart';
 import '../../../services/vpn/vpn_port.dart';
 import '../../../services/vpn/vpn_provider.dart';
 import '../../../services/vpn/wg_config.dart';
-import '../../usage/data_usage_controller.dart';
 import '../../servers/domain/server.dart';
 import '../../servers/domain/server_providers.dart';
-import 'session_state.dart';
-import 'session_status.dart';
-import 'session_meta.dart';
+import '../../settings/domain/settings_controller.dart';
 import '../../speedtest/domain/speedtest_controller.dart';
 import '../../speedtest/domain/speedtest_state.dart';
+import '../../usage/data_usage_controller.dart';
+import 'session_meta.dart';
+import 'session_state.dart';
+import 'session_status.dart';
 
 const _privateKeyStorageKey = 'wg_private_key';
 const _sessionMetaPrefsKey = 'session_meta_v1';
@@ -49,12 +50,13 @@ class SessionController extends StateNotifier<SessionState> {
   final SettingsController _settings;
 
   Timer? _ticker;
+  StreamSubscription<String>? _intentSubscription;
+  late final ProviderSubscription<SpeedTestState> _speedSubscription;
   int _reconnectAttempts = 0;
   bool _pendingAutoConnect = false;
   int _tickCounter = 0;
   SessionMeta? _activeMeta;
   Server? _queuedServer;
-  late final ProviderSubscription<SpeedTestState> _speedSubscription;
 
   Future<void> _bootstrap() async {
     await _adService.initialize();
@@ -62,6 +64,17 @@ class SessionController extends StateNotifier<SessionState> {
     await _restoreSession();
     _startTicker();
     _pendingAutoConnect = true;
+  }
+
+  void _handleIntentAction(String action) {
+    final normalized = action.toLowerCase();
+    if (normalized.contains('extend')) {
+      state = state.copyWith(extendRequested: true);
+      return;
+    }
+    if (normalized.contains('disconnect')) {
+      unawaited(disconnect(userInitiated: false));
+    }
   }
 
   void _onSpeedUpdate(SpeedTestState? previous, SpeedTestState next) {
@@ -77,6 +90,7 @@ class SessionController extends StateNotifier<SessionState> {
     if (meta != null) {
       final updated = meta.copyWith(publicIp: ip);
       _activeMeta = updated;
+      state = state.copyWith(meta: updated);
       unawaited(_persistMeta(updated));
       unawaited(_vpnPort.extendSession(updated.duration, publicIp: ip));
     }
@@ -97,10 +111,6 @@ class SessionController extends StateNotifier<SessionState> {
         duration: meta.duration,
       );
       final connected = await _vpnPort.isConnected();
-      final remaining = await _clock.remaining(
-        startElapsedMs: meta.startElapsedMs,
-        duration: meta.duration,
-      );
       if (!connected || remaining == Duration.zero) {
         await _forceDisconnect(clearPrefs: true);
         return;
@@ -118,10 +128,10 @@ class SessionController extends StateNotifier<SessionState> {
         countryCode: meta.countryCode,
         publicIp: meta.publicIp,
         expired: false,
-        locked: true,
+        sessionLocked: true,
+        meta: meta,
       );
-      await _vpnPort.extendSession(additionalDurationMs: 0, ip: null);
-      unawaited(_refreshExternalIp());
+      await _vpnPort.extendSession(Duration.zero);
     } catch (_) {
       await prefs.remove(_sessionMetaPrefsKey);
       state = SessionState.initial();
@@ -244,7 +254,8 @@ class SessionController extends StateNotifier<SessionState> {
         publicIp: publicIp,
         config: config,
         expired: false,
-        locked: true,
+        sessionLocked: true,
+        meta: meta,
       );
       await _persistMeta(meta);
       await _ref.read(serverCatalogProvider.notifier).rememberSelection(server);
@@ -253,7 +264,11 @@ class SessionController extends StateNotifier<SessionState> {
     } catch (e) {
       state = state.copyWith(
         status: SessionStatus.error,
+        errorMessage: 'Unable to establish tunnel.',
+      );
+    }
   }
+
   Future<void> disconnect({bool userInitiated = true}) async {
     final stats = await _vpnPort.getTunnelStats();
     final server = _resolveHistoryServer();
@@ -292,33 +307,29 @@ class SessionController extends StateNotifier<SessionState> {
     return _ref.read(selectedServerProvider);
   }
 
-  void _applyQueuedServer(String serverId) {
-    final catalog = _ref.read(serverCatalogProvider);
-    final next = catalog.servers.firstWhereOrNull((s) => s.id == serverId);
-    if (next != null) {
-      _ref.read(selectedServerProvider.notifier).select(next);
-    }
-  }
-
   Future<void> _forceDisconnect({bool clearPrefs = false}) async {
     await _vpnPort.disconnect();
     if (clearPrefs) {
       await _clearPersistedMeta();
     }
     _activeMeta = null;
-    state = SessionState.initial().copyWith(expired: true, locked: false);
+    state = SessionState.initial().copyWith(expired: true, sessionLocked: false);
     _applyQueuedServerSelection();
   }
 
   Future<void> _persistMeta(SessionMeta meta) async {
     final prefs = await _ref.read(prefsStoreProvider.future);
     final jsonStr = jsonEncode(meta.toJson());
-    await prefs.setString(_sessionPrefsKey, jsonStr);
+    await prefs.setString(_sessionMetaPrefsKey, jsonStr);
   }
 
   Future<void> _clearPersistedMeta() async {
     final prefs = await _ref.read(prefsStoreProvider.future);
     await prefs.remove(_sessionMetaPrefsKey);
+  }
+
+  Future<void> _clearPersistedState() async {
+    await _clearPersistedMeta();
   }
 
   void _applyQueuedServerSelection() {
@@ -399,6 +410,23 @@ class SessionController extends StateNotifier<SessionState> {
     await connect(context: context, server: server);
   }
 
+  Future<void> extendSession(BuildContext context) async {
+    if (state.status != SessionStatus.connected) {
+      return;
+    }
+    state = state.copyWith(extendRequested: false);
+    try {
+      await _adService.unlock(duration: _extendDuration, context: context);
+      await extend(_extendDuration);
+    } catch (error) {
+      state = state.copyWith(errorMessage: error.toString());
+    }
+  }
+
+  void requestExtension() {
+    state = state.copyWith(extendRequested: true);
+  }
+
   Future<void> extend(Duration extra) async {
     final meta = _activeMeta;
     if (state.status != SessionStatus.connected || meta == null) {
@@ -406,7 +434,11 @@ class SessionController extends StateNotifier<SessionState> {
     }
     final extended = meta.extend(extra);
     _activeMeta = extended;
-    state = state.copyWith(duration: extended.duration);
+    state = state.copyWith(
+      duration: extended.duration,
+      meta: extended,
+      extendRequested: false,
+    );
     await _persistMeta(extended);
     await _vpnPort.extendSession(extended.duration, publicIp: extended.publicIp);
   }
@@ -414,6 +446,7 @@ class SessionController extends StateNotifier<SessionState> {
   @override
   void dispose() {
     _ticker?.cancel();
+    _intentSubscription?.cancel();
     _speedSubscription.close();
     super.dispose();
   }
