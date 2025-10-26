@@ -51,6 +51,10 @@ class _ConnectControlState extends State<ConnectControl>
     final isDisabled = !widget.enabled || widget.isLoading;
     final double size = 180;
 
+    final primary = theme.colorScheme.primary;
+    final secondary = theme.colorScheme.secondary;
+    final onPrimary = theme.colorScheme.onPrimary;
+
     return SizedBox(
       width: size,
       height: size,
@@ -58,7 +62,7 @@ class _ConnectControlState extends State<ConnectControl>
         animation: _controller,
         builder: (context, child) {
           final pulse = widget.isActive
-              ? (0.9 + 0.1 * sin(_controller.value * 2 * pi))
+              ? (0.92 + 0.08 * sin(_controller.value * 2 * pi))
               : 1.0;
           return Transform.scale(
             scale: pulse,
@@ -73,7 +77,7 @@ class _ConnectControlState extends State<ConnectControl>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    HiVpnColors.primary.withOpacity(widget.isActive ? 0.45 : 0.25),
+                    primary.withOpacity(widget.isActive ? 0.35 : 0.18),
                     Colors.transparent,
                   ],
                   radius: 0.95,
@@ -85,16 +89,20 @@ class _ConnectControlState extends State<ConnectControl>
               height: size - 12,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF1A2140), Color(0xFF2B2D7C)],
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    primary.withOpacity(0.12),
+                    secondary.withOpacity(0.08),
+                  ],
                 ),
+                border: Border.all(color: primary.withOpacity(0.1)),
                 boxShadow: [
                   BoxShadow(
-                    color: HiVpnColors.primary.withOpacity(widget.isActive ? 0.45 : 0.2),
-                    blurRadius: 24,
-                    spreadRadius: 2,
+                    color: primary.withOpacity(widget.isActive ? 0.25 : 0.12),
+                    blurRadius: 32,
+                    offset: const Offset(0, 18),
                   ),
                 ],
               ),
@@ -115,19 +123,28 @@ class _ConnectControlState extends State<ConnectControl>
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
-                      colors: [
-                        HiVpnColors.primary.withOpacity(0.9),
-                        HiVpnColors.accent.withOpacity(0.7),
-                      ],
+                      colors: widget.isActive
+                          ? [secondary, primary]
+                          : [primary, secondary.withOpacity(0.9)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primary.withOpacity(widget.isActive ? 0.35 : 0.22),
+                        blurRadius: 30,
+                        offset: const Offset(0, 20),
+                      ),
+                    ],
                   ),
                   child: widget.isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 32,
                           height: 32,
-                          child: CircularProgressIndicator(strokeWidth: 3),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            valueColor: AlwaysStoppedAnimation<Color>(onPrimary),
+                          ),
                         )
                       : Column(
                           mainAxisSize: MainAxisSize.min,
@@ -135,7 +152,7 @@ class _ConnectControlState extends State<ConnectControl>
                             Text(
                               widget.label,
                               style: theme.textTheme.titleMedium?.copyWith(
-                                color: HiVpnColors.onPrimary,
+                                color: onPrimary,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -144,7 +161,7 @@ class _ConnectControlState extends State<ConnectControl>
                               Text(
                                 widget.statusText!,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: HiVpnColors.onPrimary.withOpacity(0.9),
+                                  color: onPrimary.withOpacity(0.92),
                                 ),
                               ),
                             ],

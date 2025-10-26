@@ -6,12 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
 import '../../core/utils/time.dart';
-import '../../features/connection/presentation/connection_quality_indicator.dart';
+import '../../features/connection/domain/connection_quality_controller.dart';
 import '../../services/storage/prefs.dart';
 import '../../services/haptics/haptics_service.dart';
 import '../../theme/colors.dart';
-import '../../theme/theme.dart';
-import '../../widgets/home_status_widget.dart';
 import '../../widgets/connect_control.dart';
 import '../../widgets/status_pill.dart';
 import '../../l10n/app_localizations.dart';
@@ -189,126 +187,158 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final serversAsyncValue = ref.watch(serversAsync);
     final speedState = ref.watch(speedTestControllerProvider);
     final usageState = ref.watch(dataUsageControllerProvider);
+    final qualityState = ref.watch(connectionQualityControllerProvider);
     final theme = Theme.of(context);
     final servers = catalog.sortedServers;
 
     final statusLabel = _statusLabel(session.status, countdown, l10n);
     final statusColor = _statusColor(session.status);
+    final qualityLabel = l10n.connectionQualityLabel(qualityState.quality);
+
+    final usedGb = usageState.usedBytes / (1024 * 1024 * 1024);
+    final limitGb = usageState.monthlyLimitBytes != null
+        ? usageState.monthlyLimitBytes! / (1024 * 1024 * 1024)
+        : null;
+    final usageText = l10n.usageSummaryText(usedGb, limitGb);
+    final ip = speedState.ip ?? '--';
+    final downloadValue = speedState.downloadMbps > 0 ? speedState.downloadMbps : null;
+    final uploadValue = speedState.uploadMbps > 0 ? speedState.uploadMbps : null;
 
     final isBusy = session.status == SessionStatus.preparing ||
         session.status == SessionStatus.connecting;
     final isConnected = session.status == SessionStatus.connected;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 160),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(child: HomeStatusWidget()),
-              IconButton(
-                onPressed: () => _openSettings(context),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.appTitle,
+                      style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.unlockSecureAccess,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton.filledTonal(
+                onPressed: _openSettings,
                 icon: const Icon(Icons.settings_outlined),
                 tooltip: l10n.settingsTitle,
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          const ConnectionQualityIndicator(),
-          const SizedBox(height: 16),
-          _buildUsageSummary(context, usageState),
           const SizedBox(height: 24),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: KeyedSubtree(
-              key: _statusKey,
-              child: StatusPill(
-                label: statusLabel,
-                color: statusColor,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            selectedServer?.name ?? l10n.selectServerToBegin,
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            selectedServer != null
-                ? '${_flagEmoji(selectedServer.countryCode)}  ${selectedServer.countryCode.toUpperCase()}'
-                : l10n.noServerSelected,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.7),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            isConnected ? l10n.sessionRemaining : l10n.unlockSecureAccess,
-            style: theme.textTheme.labelLarge,
-          ),
-          const SizedBox(height: 8),
-          const SessionCountdown(),
-          const SizedBox(height: 24),
-          KeyedSubtree(
-            key: _connectKey,
-            child: ConnectControl(
-              enabled: !isBusy,
-              isActive: isConnected,
-              isLoading: isBusy,
-              label: isConnected ? l10n.disconnect : l10n.connect,
-              statusText: isConnected ? countdown : l10n.watchAdToStart,
-              onTap: () async {
-                await ref.read(hapticsServiceProvider).impact();
-                if (isConnected) {
-                  await ref.read(sessionControllerProvider.notifier).disconnect();
-                } else {
-                  final server = selectedServer;
-                  if (server == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(l10n.pleaseSelectServer)),
-                    );
-                    return;
-                  }
-                  await ref
-                      .read(sessionControllerProvider.notifier)
-                      .connect(context: context, server: server);
-                }
-              },
-            ),
+          _buildOverviewCard(
+            context,
+            l10n: l10n,
+            statusLabel: statusLabel,
+            statusColor: statusColor,
+            qualityLabel: qualityLabel,
+            usageText: usageText,
+            ip: ip,
           ),
           const SizedBox(height: 32),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Center(
+            child: Column(
               children: [
                 Text(
-                  l10n.locations,
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  selectedServer?.name ?? l10n.selectServerToBegin,
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                  textAlign: TextAlign.center,
                 ),
-                TextButton(
-                  onPressed: () {
-                    unawaited(_showServerPicker(context));
-                  },
-                  child: Text(l10n.viewAll),
+                const SizedBox(height: 6),
+                Text(
+                  selectedServer != null
+                      ? '${_flagEmoji(selectedServer.countryCode)}  ${selectedServer.countryCode.toUpperCase()}'
+                      : l10n.noServerSelected,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.65),
+                  ),
+                  textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 24),
+                KeyedSubtree(
+                  key: _connectKey,
+                  child: ConnectControl(
+                    enabled: !isBusy,
+                    isActive: isConnected,
+                    isLoading: isBusy,
+                    label: isConnected ? l10n.disconnect : l10n.connect,
+                    statusText: isConnected ? countdown : l10n.watchAdToStart,
+                    onTap: () async {
+                      await ref.read(hapticsServiceProvider).impact();
+                      if (isConnected) {
+                        await ref.read(sessionControllerProvider.notifier).disconnect();
+                      } else {
+                        final server = selectedServer;
+                        if (server == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(l10n.pleaseSelectServer)),
+                          );
+                          return;
+                        }
+                        await ref
+                            .read(sessionControllerProvider.notifier)
+                            .connect(context: context, server: server);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  isConnected ? l10n.sessionRemaining : l10n.unlockSecureAccess,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const SessionCountdown(),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                l10n.locations,
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              TextButton(
+                onPressed: () {
+                  unawaited(_showServerPicker(context));
+                },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                child: Text(l10n.viewAll),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           KeyedSubtree(
             key: _serverCarouselKey,
             child: serversAsyncValue.when(
               data: (servers) => SizedBox(
-                height: 140,
+                height: 160,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: servers.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 16),
+                  separatorBuilder: (_, __) => const SizedBox(width: 18),
                   itemBuilder: (context, index) {
                     final server = servers[index];
                     final selected = selectedServer?.id == server.id;
@@ -332,7 +362,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               loading: () => const SizedBox(
-                height: 140,
+                height: 160,
                 child: Center(child: CircularProgressIndicator()),
               ),
               error: (error, __) => Text('${l10n.failedToLoadServers}: $error'),
@@ -342,16 +372,119 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _buildInfoFooter(
             context,
             l10n: l10n,
-            ip: speedState.ip ?? '--',
+            ip: ip,
             remaining: countdown,
+            download: downloadValue,
+            upload: uploadValue,
+            ping: speedState.ping,
           ),
           const SizedBox(height: 16),
-          TextButton(
-            onPressed: () {
-              unawaited(ref.read(hapticsServiceProvider).selection());
-              _showLegalDialog(context);
-            },
-            child: Text(l10n.termsPrivacy),
+          Center(
+            child: TextButton(
+              onPressed: () {
+                unawaited(ref.read(hapticsServiceProvider).selection());
+                _showLegalDialog(context);
+              },
+              child: Text(l10n.termsPrivacy),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverviewCard(BuildContext context,
+      {required AppLocalizations l10n,
+      required String statusLabel,
+      required Color statusColor,
+      required String qualityLabel,
+      required String usageText,
+      required String ip}) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.primary.withOpacity(0.18),
+            theme.colorScheme.secondary.withOpacity(0.12),
+            Colors.white,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(36),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(0.14),
+            blurRadius: 40,
+            offset: const Offset(0, 24),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              KeyedSubtree(
+                key: _statusKey,
+                child: StatusPill(
+                  label: statusLabel,
+                  color: statusColor,
+                ),
+              ),
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: Colors.white.withOpacity(0.65),
+                foregroundColor: theme.colorScheme.primary,
+                child: const Icon(Icons.shield_outlined),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            statusLabel,
+            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.homeWidgetQualitySummary(qualityLabel),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: [
+              _InfoBadge(
+                icon: Icons.signal_cellular_alt,
+                label: l10n.connectionQualityTitle,
+                value: qualityLabel,
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary.withOpacity(0.22),
+                    Colors.white,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              _InfoBadge(
+                icon: Icons.storage_rounded,
+                label: l10n.settingsUsage,
+                value: usageText,
+              ),
+              _InfoBadge(
+                icon: Icons.language,
+                label: l10n.currentIp,
+                value: ip,
+              ),
+            ],
           ),
         ],
       ),
@@ -361,57 +494,89 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildInfoFooter(BuildContext context,
       {required AppLocalizations l10n,
       required String ip,
-      required String remaining}) {
+      required String remaining,
+      required double? download,
+      required double? upload,
+      required Duration? ping}) {
     final theme = Theme.of(context);
+    final downloadText = download != null ? '${download.toStringAsFixed(1)} Mbps' : '--';
+    final uploadText = upload != null ? '${upload.toStringAsFixed(1)} Mbps' : '--';
+    final pingText = ping != null ? '${ping.inMilliseconds} ms' : '--';
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: theme.elevatedSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white10),
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(0.06),
+            blurRadius: 34,
+            offset: const Offset(0, 22),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l10n.currentIp, style: theme.textTheme.labelLarge),
-                  const SizedBox(height: 4),
-                  Text(ip, style: theme.textTheme.titleMedium),
-                ],
+              _InfoBadge(
+                icon: Icons.language,
+                label: l10n.currentIp,
+                value: ip,
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(l10n.sessionLabel, style: theme.textTheme.labelLarge),
-                  const SizedBox(height: 4),
-                  Text(remaining, style: theme.textTheme.titleMedium),
-                ],
+              _InfoBadge(
+                icon: Icons.timer_outlined,
+                label: l10n.sessionLabel,
+                value: remaining,
+              ),
+              _InfoBadge(
+                icon: Icons.download_rounded,
+                label: 'Download',
+                value: downloadText,
+              ),
+              _InfoBadge(
+                icon: Icons.upload_rounded,
+                label: 'Upload',
+                value: uploadText,
+              ),
+              _InfoBadge(
+                icon: Icons.podcasts,
+                label: 'Ping',
+                value: pingText,
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          GestureDetector(
+          const SizedBox(height: 24),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
             onTap: () {
               unawaited(ref.read(hapticsServiceProvider).selection());
               setState(() => _tabIndex = 1);
             },
-            child: Row(
-              children: [
-                Icon(Icons.speed, color: theme.colorScheme.secondary),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    l10n.runSpeedTest,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-                const Icon(Icons.chevron_right),
-              ],
+            leading: CircleAvatar(
+              radius: 24,
+              backgroundColor: theme.colorScheme.primary.withOpacity(0.12),
+              foregroundColor: theme.colorScheme.primary,
+              child: const Icon(Icons.speed),
+            ),
+            title: Text(
+              l10n.navSpeedTest,
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            subtitle: Text(
+              l10n.runSpeedTest,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+            trailing: Icon(
+              Icons.chevron_right,
+              color: theme.colorScheme.onSurface.withOpacity(0.5),
             ),
           ),
         ],
@@ -425,55 +590,58 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: Container(
         decoration: BoxDecoration(
-          color: theme.elevatedSurface,
-          borderRadius: BorderRadius.circular(32),
-          border: Border.all(color: Colors.white12),
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(color: theme.colorScheme.outline.withOpacity(0.12)),
+          boxShadow: [
+            BoxShadow(
+              color: theme.colorScheme.primary.withOpacity(0.12),
+              blurRadius: 30,
+              offset: const Offset(0, 18),
+            ),
+          ],
         ),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
         child: Row(
           children: [
-            Expanded(
+            _NavigationItem(
+              icon: Icons.shield_outlined,
+              label: l10n.navHome,
+              selected: _tabIndex == 0,
+              onTap: () {
+                unawaited(ref.read(hapticsServiceProvider).selection());
+                setState(() => _tabIndex = 0);
+              },
+            ),
+            KeyedSubtree(
+              key: _speedTabKey,
               child: _NavigationItem(
-                icon: Icons.shield_moon_outlined,
-                label: l10n.navHome,
-                selected: _tabIndex == 0,
+                icon: Icons.speed,
+                label: l10n.navSpeedTest,
+                selected: _tabIndex == 1,
                 onTap: () {
                   unawaited(ref.read(hapticsServiceProvider).selection());
-                  setState(() => _tabIndex = 0);
+                  setState(() => _tabIndex = 1);
                 },
               ),
             ),
-            Expanded(
-              child: KeyedSubtree(
-                key: _speedTabKey,
-                child: _NavigationItem(
-                  icon: Icons.speed,
-                  label: l10n.navSpeedTest,
-                  selected: _tabIndex == 1,
-                  onTap: () {
-                    unawaited(ref.read(hapticsServiceProvider).selection());
-                    setState(() => _tabIndex = 1);
-                  },
-                ),
-              ),
+            _NavigationItem(
+              icon: Icons.history,
+              label: 'History',
+              selected: _tabIndex == 2,
+              onTap: () {
+                setState(() => _tabIndex = 2);
+              },
             ),
-            Expanded(
-              child: _NavigationItem(
-                icon: Icons.history,
-                label: 'History',
-                selected: _tabIndex == 2,
-                onTap: () => setState(() => _tabIndex = 2),
-              ),
+            _NavigationItem(
+              icon: Icons.tune,
+              label: 'Settings',
+              selected: _tabIndex == 3,
+              onTap: () {
+                setState(() => _tabIndex = 3);
+              },
             ),
-            Expanded(
-              child: _NavigationItem(
-                icon: Icons.tune,
-                label: 'Settings',
-                selected: _tabIndex == 3,
-                onTap: () => setState(() => _tabIndex = 3),
-              ),
-            ),
-          ],
+          ].map((item) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: item))).toList(),
         ),
       ),
     );
@@ -557,49 +725,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Future<void> _openSettings(BuildContext context) async {
+  Future<void> _openSettings() async {
     await ref.read(hapticsServiceProvider).selection();
     if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SettingsScreen()),
-    );
-  }
-
-  Widget _buildUsageSummary(BuildContext context, DataUsageState usage) {
-    final theme = Theme.of(context);
-    final l10n = context.l10n;
-    final usedGb = usage.usedBytes / (1024 * 1024 * 1024);
-    final limitGb = usage.monthlyLimitBytes != null
-        ? usage.monthlyLimitBytes! / (1024 * 1024 * 1024)
-        : null;
-    final progress = usage.hasLimit ? usage.utilization.clamp(0, 1).toDouble() : null;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.elevatedSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.settingsUsage,
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.usageSummaryText(usedGb, limitGb),
-            style: theme.textTheme.bodyMedium,
-          ),
-          if (progress != null) ...[
-            const SizedBox(height: 12),
-            LinearProgressIndicator(value: progress),
-          ],
-        ],
-      ),
-    );
+    setState(() => _tabIndex = 3);
   }
 
   String _flagEmoji(String countryCode) {
@@ -628,24 +757,61 @@ class _NavigationItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return InkWell(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(28),
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? theme.colorScheme.primary.withOpacity(0.16) : Colors.transparent,
-          borderRadius: BorderRadius.circular(24),
+          gradient: selected
+              ? LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.secondary,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: selected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withOpacity(0.28),
+                    blurRadius: 28,
+                    offset: const Offset(0, 14),
+                  ),
+                ]
+              : [],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: selected ? theme.colorScheme.primary : theme.colorScheme.onSurface),
-            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: selected
+                    ? Colors.white.withOpacity(0.25)
+                    : theme.colorScheme.primary.withOpacity(0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: selected
+                    ? Colors.white
+                    : theme.colorScheme.onSurface.withOpacity(0.65),
+              ),
+            ),
+            const SizedBox(height: 6),
             Text(
               label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: selected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: selected
+                    ? Colors.white
+                    : theme.colorScheme.onSurface.withOpacity(0.7),
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -674,9 +840,19 @@ class _ServerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final cardColor = theme.pastelCard(
-      selected ? theme.colorScheme.secondary : theme.colorScheme.primaryContainer,
-      opacity: selected ? 0.22 : 0.12,
+    final gradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: selected
+          ? [
+              theme.colorScheme.primary.withOpacity(0.22),
+              theme.colorScheme.secondary.withOpacity(0.16),
+              Colors.white,
+            ]
+          : [
+              theme.colorScheme.primary.withOpacity(0.08),
+              Colors.white,
+            ],
     );
     final statusLabel = connected
         ? l10n.badgeConnected
@@ -690,27 +866,55 @@ class _ServerCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(28),
       child: Container(
-        width: 180,
-        padding: const EdgeInsets.all(16),
+        width: 200,
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(24),
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(28),
           border: Border.all(
             color: selected
-                ? theme.colorScheme.secondary
-                : theme.colorScheme.onSurface.withOpacity(0.08),
+                ? theme.colorScheme.primary.withOpacity(0.45)
+                : theme.colorScheme.outline.withOpacity(0.12),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: selected
+                  ? theme.colorScheme.primary.withOpacity(0.22)
+                  : theme.colorScheme.primary.withOpacity(0.08),
+              blurRadius: 26,
+              offset: const Offset(0, 14),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              _flagEmoji(server.countryCode),
-              style: const TextStyle(fontSize: 28),
+            Row(
+              children: [
+                Text(
+                  _flagEmoji(server.countryCode),
+                  style: const TextStyle(fontSize: 30),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    latencyText,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               server.name,
               maxLines: 2,
@@ -723,17 +927,17 @@ class _ServerCard extends StatelessWidget {
             Text(
               '${l10n.latencyLabel}: $latencyText',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                color: theme.colorScheme.onSurface.withOpacity(0.65),
               ),
             ),
             const Spacer(),
             Align(
               alignment: Alignment.bottomLeft,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
+                  color: statusColor.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   statusLabel,
@@ -756,5 +960,78 @@ class _ServerCard extends StatelessWidget {
       final codeUnit = char.codeUnitAt(0) - 0x41 + base;
       return String.fromCharCode(codeUnit);
     }).join();
+  }
+}
+
+class _InfoBadge extends StatelessWidget {
+  const _InfoBadge({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.gradient,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Gradient? gradient;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 140, maxWidth: 220),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          color: gradient == null ? theme.colorScheme.surface : null,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: theme.colorScheme.outline.withOpacity(0.12)),
+          boxShadow: [
+            BoxShadow(
+              color: theme.colorScheme.primary.withOpacity(0.05),
+              blurRadius: 22,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.65),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              value,
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

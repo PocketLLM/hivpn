@@ -5,22 +5,31 @@ import 'colors.dart';
 
 ThemeData buildHiVpnTheme({String accentSeed = 'lavender'}) {
   final accent = _accentFromSeed(accentSeed);
-  final colorScheme = ColorScheme.dark(
+  final baseScheme = ColorScheme.fromSeed(
+    seedColor: accent,
+    brightness: Brightness.light,
+  );
+
+  final colorScheme = baseScheme.copyWith(
     primary: HiVpnColors.primary,
     onPrimary: HiVpnColors.onPrimary,
     primaryContainer: HiVpnColors.primaryContainer,
+    onPrimaryContainer: HiVpnColors.primary,
     secondary: accent,
-    onSecondary: HiVpnColors.background,
+    onSecondary: HiVpnColors.onPrimary,
     background: HiVpnColors.background,
     onBackground: HiVpnColors.onSurface,
     surface: HiVpnColors.surface,
     onSurface: HiVpnColors.onSurface,
+    surfaceVariant: const Color(0xFFE8EDFF),
+    onSurfaceVariant: const Color(0xFF475569),
+    outline: const Color(0xFFD6DBF5),
     error: HiVpnColors.error,
     onError: HiVpnColors.onPrimary,
   );
 
   final textTheme = GoogleFonts.interTextTheme(
-    ThemeData.dark().textTheme,
+    ThemeData.light().textTheme,
   ).apply(
     bodyColor: colorScheme.onSurface,
     displayColor: colorScheme.onSurface,
@@ -31,14 +40,16 @@ ThemeData buildHiVpnTheme({String accentSeed = 'lavender'}) {
     useMaterial3: true,
     scaffoldBackgroundColor: colorScheme.background,
     textTheme: textTheme,
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Color(0xFF1A2140),
-      foregroundColor: HiVpnColors.onSurface,
+    appBarTheme: AppBarTheme(
+      backgroundColor: Colors.transparent,
+      foregroundColor: colorScheme.onSurface,
       elevation: 0,
+      centerTitle: false,
+      scrolledUnderElevation: 0,
     ),
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: colorScheme.surface,
-      contentTextStyle: TextStyle(color: colorScheme.onSurface),
+      backgroundColor: colorScheme.onSurface,
+      contentTextStyle: TextStyle(color: colorScheme.onPrimary),
       behavior: SnackBarBehavior.floating,
     ),
     dialogTheme: DialogThemeData(
@@ -49,18 +60,38 @@ ThemeData buildHiVpnTheme({String accentSeed = 'lavender'}) {
         fontWeight: FontWeight.w600,
       ),
       contentTextStyle: TextStyle(
-        color: colorScheme.onSurface.withOpacity(0.9),
+        color: colorScheme.onSurface.withOpacity(0.8),
         fontSize: 14,
       ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         foregroundColor: colorScheme.onPrimary,
         backgroundColor: colorScheme.primary,
-        minimumSize: const Size.fromHeight(56),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        minimumSize: const Size.fromHeight(52),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
       ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        side: BorderSide(color: colorScheme.outline),
+        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    ),
+    cardTheme: CardTheme(
+      color: colorScheme.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      margin: EdgeInsets.zero,
     ),
   );
 }
