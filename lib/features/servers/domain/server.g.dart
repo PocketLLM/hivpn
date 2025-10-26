@@ -16,6 +16,15 @@ _$_Server _$$_ServerFromJson(Map<String, dynamic> json) => _$_Server(
       allowedIps: json['allowedIps'] as String,
       mtu: json['mtu'] as int?,
       keepaliveSeconds: json['keepaliveSeconds'] as int?,
+      hostName: json['hostName'] as String?,
+      ip: json['ip'] as String?,
+      pingMs: json['pingMs'] as int?,
+      bandwidth: json['bandwidth'] as int?,
+      sessions: json['sessions'] as int?,
+      openVpnConfigDataBase64: json['openVpnConfigDataBase64'] as String?,
+      regionName: json['regionName'] as String?,
+      cityName: json['cityName'] as String?,
+      score: (json['score'] as num?)?.toDouble(),
     );
 
 Map<String, dynamic> _$$_ServerToJson(_$_Server instance) => <String, dynamic>{
@@ -27,4 +36,13 @@ Map<String, dynamic> _$$_ServerToJson(_$_Server instance) => <String, dynamic>{
       'allowedIps': instance.allowedIps,
       'mtu': instance.mtu,
       'keepaliveSeconds': instance.keepaliveSeconds,
+      'hostName': instance.hostName,
+      'ip': instance.ip,
+      'pingMs': instance.pingMs,
+      'bandwidth': instance.bandwidth,
+      'sessions': instance.sessions,
+      'openVpnConfigDataBase64': instance.openVpnConfigDataBase64,
+      'regionName': instance.regionName,
+      'cityName': instance.cityName,
+      'score': instance.score,
     };

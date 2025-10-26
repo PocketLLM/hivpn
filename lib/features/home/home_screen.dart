@@ -455,25 +455,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return serversAsyncValue.when(
-                  data: (servers) => SizedBox(
-                    height: 200,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: constraints.maxWidth * 0.04, // 4% of screen width
-                      ),
+                  data: (servers) {
+                    final maxWidth = constraints.maxWidth;
+                    final upperBound = maxWidth - 32;
+                    late final double cardWidth;
+                    if (upperBound <= 0) {
+                      cardWidth = maxWidth;
+                    } else if (upperBound < 180) {
+                      cardWidth = upperBound;
+                    } else {
+                      cardWidth = (maxWidth * 0.72).clamp(180.0, upperBound);
+                    }
+                    final displayServers = servers.length > 20
+                        ? servers.take(20).toList(growable: false)
+                        : servers;
+                    return SizedBox(
+                      height: 248,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        itemCount: servers.length,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: constraints.maxWidth * 0.02, // 2% of screen width
-                        ),
+                        itemCount: displayServers.length,
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
                         physics: const BouncingScrollPhysics(),
                         clipBehavior: Clip.none,
-                        separatorBuilder: (_, __) => SizedBox(
-                          width: constraints.maxWidth * 0.04, // 4% of screen width
-                        ),
+                        separatorBuilder: (_, __) => const SizedBox(width: 16),
                         itemBuilder: (context, index) {
-                          final server = servers[index];
+                          final server = displayServers[index];
                           final selected = selectedServer?.id == server.id;
                           final latency = catalog.latencyMs[server.id];
                           return Padding(
@@ -489,12 +495,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       ref.read(selectedServerProvider.notifier).select(server);
                                     },
                               latency: latency,
+                              width: cardWidth,
                             ),
                           );
                         },
                       ),
-                    ),
-                  ),
+                    );
+                  },
                   loading: () => const SizedBox(
                     height: 160,
                     child: Center(child: CircularProgressIndicator()),
@@ -652,6 +659,7 @@ class _ServerCard extends StatelessWidget {
     required this.connected,
     this.onTap,
     this.latency,
+    required this.width,
   });
 
   final Server server;
@@ -659,6 +667,7 @@ class _ServerCard extends StatelessWidget {
   final bool connected;
   final VoidCallback? onTap;
   final int? latency;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -673,40 +682,50 @@ class _ServerCard extends StatelessWidget {
     final statusColor = connected
         ? HiVpnColors.success
         : theme.colorScheme.onSurface.withOpacity(0.85);
-    final latencyText = latency != null ? '${latency!} ms' : '--';
+    final pingValue = server.pingMs ?? latency;
+    final latencyText = pingValue != null ? '$pingValue ms' : '--';
+    final bandwidthText =
+        server.bandwidth != null ? _formatBandwidth(server.bandwidth!) : '--';
+    final sessionsText = server.sessions?.toString() ?? '--';
+    final hostLabel = (server.hostName?.isNotEmpty ?? false)
+        ? server.hostName!
+        : server.endpoint;
+    final ipLabel = (server.ip?.isNotEmpty ?? false)
+        ? server.ip!
+        : server.endpoint.split(':').first;
 
-    return Container(
-      width: 200,
+    return SizedBox(
+      width: width,
       height: 240,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: selected 
-            ? theme.colorScheme.primary.withOpacity(0.1)
-            : theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
           color: selected
-              ? theme.colorScheme.primary.withOpacity(0.3)
-              : theme.colorScheme.outline.withOpacity(0.1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
+              ? theme.colorScheme.primary.withOpacity(0.1)
+              : theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          border: Border.all(
+            color: selected
+                ? theme.colorScheme.primary.withOpacity(0.3)
+                : theme.colorScheme.outline.withOpacity(0.1),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Row(
                   children: [
                     Text(
@@ -740,7 +759,48 @@ class _ServerCard extends StatelessWidget {
                     fontSize: 16,
                   ),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  hostLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  ipLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
                 const Spacer(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _InfoBadge(
+                        label: 'Ping',
+                        value: latencyText,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _InfoBadge(
+                        label: 'Speed',
+                        value: bandwidthText,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _InfoBadge(
+                  label: 'Sessions',
+                  value: sessionsText,
+                ),
+                const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -769,6 +829,61 @@ class _ServerCard extends StatelessWidget {
       final codeUnit = char.codeUnitAt(0) - 0x41 + base;
       return String.fromCharCode(codeUnit);
     }).join();
+  }
+
+  String _formatBandwidth(int bytesPerSecond) {
+    if (bytesPerSecond <= 0) {
+      return '--';
+    }
+    const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+    var value = bytesPerSecond.toDouble();
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+    return '${value.toStringAsFixed(1)} ${units[unitIndex]}';
+  }
+}
+
+class _InfoBadge extends StatelessWidget {
+  const _InfoBadge({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -107,10 +107,18 @@ class ServerCatalogController extends StateNotifier<ServerCatalogState> {
     }
     final results = <String, int>{};
     for (final server in state.servers) {
+      if (server.pingMs != null) {
+        results[server.id] = server.pingMs!;
+        continue;
+      }
       try {
         final stopwatch = Stopwatch()..start();
-        final uri = Uri.parse('https://${server.endpoint.split(':').first}');
-        final socket = await Socket.connect(uri.host, 443,
+        final parts = server.endpoint.split(':');
+        final host = parts.isNotEmpty ? parts.first : server.endpoint;
+        final port = parts.length >= 2
+            ? int.tryParse(parts[1]) ?? 443
+            : 443;
+        final socket = await Socket.connect(host, port,
             timeout: const Duration(seconds: 3));
         socket.destroy();
         stopwatch.stop();

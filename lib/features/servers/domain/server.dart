@@ -15,6 +15,15 @@ class Server with _$Server {
     required String allowedIps,
     int? mtu,
     int? keepaliveSeconds,
+    String? hostName,
+    String? ip,
+    int? pingMs,
+    int? bandwidth,
+    int? sessions,
+    String? openVpnConfigDataBase64,
+    String? regionName,
+    String? cityName,
+    double? score,
   }) = _Server;
 
   factory Server.fromJson(Map<String, dynamic> json) =>

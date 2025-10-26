@@ -35,9 +35,40 @@ class ServerTile extends StatelessWidget {
         child: Text(_flagEmoji(server.countryCode)),
       ),
       title: Text(server.name),
-      subtitle: Text('${l10n.locations}: ${server.countryCode.toUpperCase()}'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('${l10n.locations}: ${server.countryCode.toUpperCase()}'),
+          if ((server.hostName?.isNotEmpty ?? false) ||
+              (server.ip?.isNotEmpty ?? false))
+            Text(
+              _buildDetailsText(),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+        ],
+      ),
       trailing: const Icon(Icons.chevron_right),
     );
+  }
+
+  String _buildDetailsText() {
+    final ping = server.pingMs != null ? '${server.pingMs} ms' : null;
+    final ip = (server.ip?.isNotEmpty ?? false)
+        ? server.ip
+        : server.endpoint.split(':').first;
+    if (ping != null && ip != null && ip.isNotEmpty) {
+      return 'Ping: $ping • IP: $ip';
+    }
+    if (ping != null) {
+      return 'Ping: $ping';
+    }
+    if (ip != null && ip.isNotEmpty) {
+      return 'IP: $ip';
+    }
+    return '';
   }
 
   String _flagEmoji(String countryCode) {
