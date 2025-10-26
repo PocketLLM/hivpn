@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -43,8 +44,13 @@ class ServerRepository {
     }
 
     try {
+      developer.log('Fetching VPNGate catalogue', name: 'ServerRepository');
       final remoteServers = await _vpnGateApi.fetchServers();
+      developer.log('Received ${remoteServers.length} VPN entries',
+          name: 'ServerRepository');
       if (remoteServers.isEmpty) {
+        developer.log('Remote catalogue empty, using cached copy',
+            name: 'ServerRepository');
         return cached;
       }
 
@@ -71,13 +77,17 @@ class ServerRepository {
             mapped.map((server) => server.toJson()).toList(growable: false),
           );
           await prefs.setString(_cacheKey, encoded);
+          developer.log('Cached ${mapped.length} VPN entries',
+              name: 'ServerRepository');
         } catch (_) {
           // Ignore cache write errors.
         }
       }
 
       return mapped;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      developer.log('Failed to refresh catalogue, falling back to cache',
+          name: 'ServerRepository', error: error, stackTrace: stackTrace);
       return cached;
     }
   }

@@ -1,6 +1,9 @@
+import 'dart:convert';
+import 'dart:developer' as developer;
+
 import 'package:csv/csv.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 class VpnGateRecord {
   const VpnGateRecord({
@@ -71,20 +74,16 @@ class VpnGateApi {
   VpnGateApi({http.Client? client}) : _client = client ?? http.Client();
 
   static const _endpoint = 'http://www.vpngate.net/api/iphone/';
+  static const _fallbackEndpoint = 'https://www.vpngate.net/api/iphone/';
+  static const _defaultHeaders = {
+    'User-Agent':
+        'HiVPN/1.0 (Flutter); (+https://github.com/HarshAndroid/FreeVPN-App-Flutter)'
+  };
 
   final http.Client _client;
 
   Future<List<VpnGateRecord>> fetchServers() async {
-    final uri = Uri.parse(_endpoint);
-    final response = await _client.get(uri);
-    if (response.statusCode != 200) {
-      throw http.ClientException(
-        'Unexpected status code: ${response.statusCode}',
-        uri,
-      );
-    }
-
-    final body = response.body;
+    final body = await _downloadCatalogue();
     if (body.isEmpty) {
       return const [];
     }
@@ -114,12 +113,43 @@ class VpnGateApi {
       final host = map['HostName']?.toString() ?? '';
       final ip = map['IP']?.toString() ?? '';
       final config = map['OpenVPN_ConfigData_Base64']?.toString() ?? '';
-      if (host.isEmpty || ip.isEmpty || config.isEmpty) {
+      if ((host.isEmpty && ip.isEmpty) || config.isEmpty) {
         continue;
       }
       records.add(VpnGateRecord.fromMap(map));
     }
+    developer.log('VPNGate catalogue parsed: ${records.length} records',
+        name: 'VpnGateApi');
     return records;
+  }
+
+  Future<String> _downloadCatalogue() async {
+    Future<http.Response> _performGet(Uri uri) {
+      return _client.get(uri, headers: _defaultHeaders);
+    }
+
+    Future<String> _tryFetch(Uri uri) async {
+      final response = await _performGet(uri);
+      developer.log(
+        'VPNGate response: status=${response.statusCode} length=${response.contentLength ?? response.bodyBytes.length} uri=$uri',
+        name: 'VpnGateApi',
+      );
+      if (response.statusCode != 200) {
+        throw http.ClientException(
+          'Unexpected status code: ${response.statusCode}',
+          uri,
+        );
+      }
+      return const Utf8Decoder().convert(response.bodyBytes);
+    }
+
+    try {
+      return await _tryFetch(Uri.parse(_endpoint));
+    } on http.ClientException catch (error, stackTrace) {
+      developer.log('VPNGate fetch failed, retrying with HTTPS',
+          name: 'VpnGateApi', error: error, stackTrace: stackTrace);
+      return _tryFetch(Uri.parse(_fallbackEndpoint));
+    }
   }
 }
 
