@@ -45,14 +45,6 @@ android {
     }
 }
 
-androidComponents {
-    // Explicitly allow global synthetics so that D8 can emit the record stubs
-    // required by WireGuard's tunnel library.  Without this, AGP 8.7 disables
-    // the global consumer and D8 aborts when record desugaring kicks in.
-    beforeVariants(selector().all()) {
-        it.enableGlobalSynthetics = true
-    }
-}
 
 flutter {
     source = "../.."
