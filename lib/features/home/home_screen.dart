@@ -673,7 +673,17 @@ class _ServerCard extends StatelessWidget {
     final statusColor = connected
         ? HiVpnColors.success
         : theme.colorScheme.onSurface.withOpacity(0.85);
-    final latencyText = latency != null ? '${latency!} ms' : '--';
+    final pingValue = server.pingMs ?? latency;
+    final latencyText = pingValue != null ? '$pingValue ms' : '--';
+    final bandwidthText =
+        server.bandwidth != null ? _formatBandwidth(server.bandwidth!) : '--';
+    final sessionsText = server.sessions?.toString() ?? '--';
+    final hostLabel = (server.hostName?.isNotEmpty ?? false)
+        ? server.hostName!
+        : server.endpoint;
+    final ipLabel = (server.ip?.isNotEmpty ?? false)
+        ? server.ip!
+        : server.endpoint.split(':').first;
 
     return Container(
       width: 200,
@@ -740,7 +750,48 @@ class _ServerCard extends StatelessWidget {
                     fontSize: 16,
                   ),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  hostLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  ipLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
                 const Spacer(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _InfoBadge(
+                        label: 'Ping',
+                        value: latencyText,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _InfoBadge(
+                        label: 'Speed',
+                        value: bandwidthText,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _InfoBadge(
+                  label: 'Sessions',
+                  value: sessionsText,
+                ),
+                const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -769,6 +820,61 @@ class _ServerCard extends StatelessWidget {
       final codeUnit = char.codeUnitAt(0) - 0x41 + base;
       return String.fromCharCode(codeUnit);
     }).join();
+  }
+
+  String _formatBandwidth(int bytesPerSecond) {
+    if (bytesPerSecond <= 0) {
+      return '--';
+    }
+    const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+    var value = bytesPerSecond.toDouble();
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+    return '${value.toStringAsFixed(1)} ${units[unitIndex]}';
+  }
+}
+
+class _InfoBadge extends StatelessWidget {
+  const _InfoBadge({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
