@@ -420,11 +420,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return serversAsyncValue.when(
-                  data: (servers) => ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: 160,
-                      maxHeight: 200,
-                    ),
+                  data: (servers) => SizedBox(
+                    height: 200,
                     child: Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: constraints.maxWidth * 0.04, // 4% of screen width
@@ -444,10 +441,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           final server = servers[index];
                           final selected = selectedServer?.id == server.id;
                           final latency = catalog.latencyMs[server.id];
-                          return Container(
-                            margin: EdgeInsets.symmetric(
-                              vertical: constraints.maxHeight * 0.05, // 5% of container height
-                            ),
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
                             child: _ServerCard(
                               server: server,
                               selected: selected,
