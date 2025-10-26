@@ -7,22 +7,26 @@ class PreferencesState extends Equatable {
     this.autoServerSwitch = true,
     this.hapticsEnabled = true,
     this.localeCode,
+    this.privacyPolicyAccepted = false,
   });
 
   final bool autoServerSwitch;
   final bool hapticsEnabled;
   final String? localeCode;
+  final bool privacyPolicyAccepted;
 
   PreferencesState copyWith({
     bool? autoServerSwitch,
     bool? hapticsEnabled,
     Object? localeCode = _sentinel,
+    bool? privacyPolicyAccepted,
   }) {
     return PreferencesState(
       autoServerSwitch: autoServerSwitch ?? this.autoServerSwitch,
       hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
       localeCode:
           identical(localeCode, _sentinel) ? this.localeCode : localeCode as String?,
+      privacyPolicyAccepted: privacyPolicyAccepted ?? this.privacyPolicyAccepted,
     );
   }
 
@@ -31,6 +35,7 @@ class PreferencesState extends Equatable {
       'autoServerSwitch': autoServerSwitch,
       'hapticsEnabled': hapticsEnabled,
       'localeCode': localeCode,
+      'privacyPolicyAccepted': privacyPolicyAccepted,
     };
   }
 
@@ -39,9 +44,15 @@ class PreferencesState extends Equatable {
       autoServerSwitch: json['autoServerSwitch'] as bool? ?? true,
       hapticsEnabled: json['hapticsEnabled'] as bool? ?? true,
       localeCode: json['localeCode'] as String?,
+      privacyPolicyAccepted: json['privacyPolicyAccepted'] as bool? ?? false,
     );
   }
 
   @override
-  List<Object?> get props => [autoServerSwitch, hapticsEnabled, localeCode];
+  List<Object?> get props => [
+        autoServerSwitch,
+        hapticsEnabled,
+        localeCode,
+        privacyPolicyAccepted,
+      ];
 }
