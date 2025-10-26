@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SpeedTestConfig {
@@ -25,18 +22,19 @@ class SpeedTestRepository {
   const SpeedTestRepository();
 
   Future<SpeedTestConfig> load() async {
-    final raw = await rootBundle.loadString('assets/speedtest_endpoints.json');
-    final data = json.decode(raw) as Map<String, dynamic>;
-    final downloads = (data['download'] as List<dynamic>? ?? [])
-        .map((e) => Uri.parse(e as String))
-        .toList();
-    final uploads = (data['upload'] as List<dynamic>? ?? [])
-        .map((e) => Uri.parse(e as String))
-        .toList();
-    final pings = (data['ping'] as List<dynamic>? ?? [])
-        .map((e) => Uri.parse(e as String))
-        .toList();
-    final ipEndpoint = Uri.parse((data['ip'] as String?) ?? 'https://api64.ipify.org?format=text');
+    // Use default endpoints from flutter_speed_test_plus
+    // The library uses Fast.com API by default which is reliable
+    final downloads = [
+      Uri.parse('https://fast.com/'),
+    ];
+    final uploads = [
+      Uri.parse('https://fast.com/'),
+    ];
+    final pings = [
+      Uri.parse('https://fast.com/'),
+    ];
+    final ipEndpoint = Uri.parse('https://api64.ipify.org?format=text');
+
     return SpeedTestConfig(
       downloadEndpoints: downloads,
       uploadEndpoints: uploads,

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cryptography/cryptography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,12 +8,11 @@ import '../../../core/errors/app_error.dart';
 import '../../../core/utils/iterable_extensions.dart';
 import '../../../services/ads/rewarded_ad_service.dart';
 import '../../../services/storage/prefs.dart';
-import '../../../services/storage/secure_store_provider.dart';
 import '../../../services/time/session_clock.dart';
 import '../../../services/time/session_clock_provider.dart';
-import '../../../services/vpn/vpn_port.dart';
+import '../../../services/vpn/openvpn_port.dart';
 import '../../../services/vpn/vpn_provider.dart';
-import '../../../services/vpn/wg_config.dart';
+import '../../../services/vpn/models/vpn.dart';
 import '../../servers/domain/server.dart';
 import '../../servers/domain/server_providers.dart';
 import '../../settings/domain/settings_controller.dart';
@@ -26,7 +24,6 @@ import 'session_meta.dart';
 import 'session_state.dart';
 import 'session_status.dart';
 
-const _privateKeyStorageKey = 'wg_private_key';
 const _sessionMetaPrefsKey = 'session_meta_v1';
 const sessionDuration = Duration(hours: 1);
 const _dataLimitMessage = 'Monthly data limit reached.';
@@ -34,7 +31,7 @@ const _extendDuration = Duration(hours: 1);
 
 class SessionController extends StateNotifier<SessionState> {
   SessionController(this._ref)
-      : _vpnPort = _ref.read(vpnPortProvider),
+      : _vpnPort = _ref.read(openVpnPortProvider),
         _adService = _ref.read(rewardedAdServiceProvider),
         _clock = _ref.read(sessionClockProvider),
         _settings = _ref.read(settingsControllerProvider.notifier),
@@ -45,7 +42,7 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   final Ref _ref;
-  final VpnPort _vpnPort;
+  final OpenVpnPort _vpnPort;
   final RewardedAdService _adService;
   final SessionClock _clock;
   final SettingsController _settings;
@@ -143,19 +140,6 @@ class SessionController extends StateNotifier<SessionState> {
     }
   }
 
-  Future<String> _getOrCreatePrivateKey() async {
-    final store = _ref.read(secureStoreProvider);
-    final existing = await store.read(_privateKeyStorageKey);
-    if (existing != null) {
-      return existing;
-    }
-    final keyPair = await X25519().newKeyPair();
-    final privateBytes = await keyPair.extractPrivateKeyBytes();
-    final privateKey = base64Encode(privateBytes);
-    await store.write(_privateKeyStorageKey, privateKey);
-    return privateKey;
-  }
-
   Future<void> connect({
     required BuildContext context,
     required Server server,
@@ -205,42 +189,35 @@ class SessionController extends StateNotifier<SessionState> {
     state = state.copyWith(status: SessionStatus.connecting);
 
     try {
-      final privateKey = await _getOrCreatePrivateKey();
-
-      final dnsServers = settingsState.protocol.resolvedDnsServers;
       final initialIp = _ref.read(speedTestControllerProvider).ip;
       final startElapsed = await _clock.elapsedRealtime();
-      final config = WgConfig(
-        interfacePrivateKey: privateKey,
-        interfaceDns: dnsServers.isNotEmpty ? dnsServers.join(',') : null,
-        peerPublicKey: server.publicKey,
-        peerAllowedIps: server.allowedIps,
-        peerEndpoint: server.endpoint,
-        peerPersistentKeepalive: settingsState.protocol.keepaliveSeconds,
-        mtu: settingsState.protocol.mtu,
-        protocol: settingsState.protocol.protocol.name,
-        dnsServers: dnsServers,
-        splitTunnelEnabled: settingsState.splitTunnel.isEnabled,
-        splitTunnelPackages:
-            settingsState.splitTunnel.selectedPackages.toList(),
-        splitTunnelMode: settingsState.splitTunnel.mode.name,
-        connectOnAppLaunch: settingsState.autoConnect.connectOnLaunch,
-        connectOnBoot: settingsState.autoConnect.connectOnBoot,
-        reconnectOnNetworkChange:
-            settingsState.autoConnect.reconnectOnNetworkChange,
-        serverId: server.id,
-        serverName: server.name,
-        countryCode: server.countryCode,
-        publicIp: initialIp,
-        sessionStartElapsedMs: startElapsed,
-        sessionDurationMs: sessionDuration.inMilliseconds,
+
+      // Convert Server to Vpn model for OpenVPN connection
+      final vpnServer = Vpn(
+        hostName: server.hostName ?? server.name,
+        ip: server.ip ?? '',
+        ping: server.pingMs?.toString() ?? '0',
+        speed: server.bandwidth ?? 0,
+        countryLong: server.name,
+        countryShort: server.countryCode,
+        numVpnSessions: server.sessions ?? 0,
+        openVpnConfigDataBase64: server.openVpnConfigDataBase64 ?? '',
       );
 
-      final connected = await _vpnPort.connect(config);
+      // Check if we have a valid OpenVPN config
+      if (vpnServer.openVpnConfig.isEmpty) {
+        state = state.copyWith(
+          status: SessionStatus.error,
+          errorMessage: 'Server does not have OpenVPN configuration.',
+        );
+        return;
+      }
+
+      final connected = await _vpnPort.connect(vpnServer);
       if (!connected) {
         state = state.copyWith(
           status: SessionStatus.error,
-          errorMessage: 'Unable to establish tunnel.',
+          errorMessage: 'Unable to establish VPN connection.',
         );
         return;
       }
@@ -264,7 +241,6 @@ class SessionController extends StateNotifier<SessionState> {
         serverName: server.name,
         countryCode: server.countryCode,
         publicIp: publicIp,
-        config: config,
         expired: false,
         sessionLocked: true,
         meta: meta,
@@ -386,24 +362,7 @@ class SessionController extends StateNotifier<SessionState> {
     });
   }
 
-  Future<void> _attemptReconnect() async {
-    if (state.config == null) return;
-    if (_reconnectAttempts > 5) {
-      state = state.copyWith(
-        status: SessionStatus.error,
-        errorMessage: 'Connection lost. Manual reconnect required.',
-      );
-      return;
-    }
-    _reconnectAttempts += 1;
-    final backoff = Duration(seconds: 2 << (_reconnectAttempts - 1));
-    await Future<void>.delayed(backoff);
-    final success = await _vpnPort.connect(state.config!);
-    if (!success) {
-      return;
-    }
-    _reconnectAttempts = 0;
-  }
+
 
   Future<void> autoConnectIfEnabled({required BuildContext context}) async {
     if (!_pendingAutoConnect) return;

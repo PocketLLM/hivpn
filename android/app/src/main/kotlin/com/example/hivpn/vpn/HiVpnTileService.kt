@@ -15,28 +15,21 @@ class HiVpnTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        if (WireGuardService.isActive()) {
-            WireGuardService.requestDisconnect(this)
-        } else {
-            val launch = Intent(this, MainActivity::class.java).apply {
-                action = Intent.ACTION_MAIN
-                addCategory(Intent.CATEGORY_LAUNCHER)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
-            }
-            startActivityAndCollapse(launch)
+        // Open the main activity when tile is clicked
+        val launch = Intent(this, MainActivity::class.java).apply {
+            action = Intent.ACTION_MAIN
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
         }
+        startActivityAndCollapse(launch)
         refreshTile()
     }
 
     private fun refreshTile() {
         val tile = qsTile ?: return
-        if (WireGuardService.isActive()) {
-            tile.state = Tile.STATE_ACTIVE
-            tile.label = "HiVPN — Connected"
-        } else {
-            tile.state = Tile.STATE_INACTIVE
-            tile.label = "HiVPN — Tap to connect"
-        }
+        // Default to inactive state - the app will update this via requestTileUpdate
+        tile.state = Tile.STATE_INACTIVE
+        tile.label = "HiVPN"
         tile.updateTile()
     }
 

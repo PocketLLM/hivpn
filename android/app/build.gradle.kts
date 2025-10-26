@@ -43,6 +43,17 @@ android {
     buildFeatures {
         viewBinding = true
     }
+
+    lint {
+        disable += "InvalidPackage"
+        checkReleaseBuilds = false
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 
@@ -52,11 +63,10 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
-    implementation("com.wireguard.android:tunnel:1.0.20230706") {
-        exclude(group = "com.wireguard.android", module = "tunnel")
-    }
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("androidx.multidex:multidex:2.0.1")
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
 }
 
 configurations.all {

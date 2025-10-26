@@ -23,28 +23,57 @@ class ServerPickerSheet extends ConsumerWidget {
 
     final serversAsyncValue = ref.watch(serversAsync);
 
-    return serversAsyncValue.when(
-      data: (servers) => ListView.builder(
-        itemCount: servers.length,
-        itemBuilder: (context, index) {
-          final server = servers[index];
-          return ServerTile(
-            server: server,
-            selected: selectedServer?.id == server.id,
-            onTap: isConnected
-                ? null
-                : () {
-                    unawaited(ref.read(hapticsServiceProvider).selection());
-                    ref.read(selectedServerProvider.notifier).select(server);
-                    Navigator.of(context).pop();
-                  },
-          );
-        },
-      ),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(
-        child: Text('Failed to load servers: $err'),
-      ),
+    return Column(
+      children: [
+        // Header with refresh button
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'VPN Servers (${servers.length})',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () async {
+                  await ref.read(serverCatalogProvider.notifier).refreshServers();
+                },
+                tooltip: 'Refresh servers',
+              ),
+            ],
+          ),
+        ),
+        // Server list
+        Expanded(
+          child: serversAsyncValue.when(
+            data: (servers) => ListView.builder(
+              itemCount: servers.length,
+              itemBuilder: (context, index) {
+                final server = servers[index];
+                return ServerTile(
+                  server: server,
+                  selected: selectedServer?.id == server.id,
+                  onTap: isConnected
+                      ? null
+                      : () {
+                          unawaited(ref.read(hapticsServiceProvider).selection());
+                          ref.read(selectedServerProvider.notifier).select(server);
+                          Navigator.of(context).pop();
+                        },
+                );
+              },
+            ),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => Center(
+              child: Text('Failed to load servers: $err'),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

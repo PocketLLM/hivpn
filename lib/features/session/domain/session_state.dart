@@ -1,4 +1,3 @@
-import '../../../services/vpn/wg_config.dart';
 import 'session_meta.dart';
 import 'session_status.dart';
 
@@ -15,7 +14,6 @@ class SessionState {
     this.countryCode,
     this.publicIp,
     this.errorMessage,
-    this.config,
     this.expired = false,
     this.meta,
     this.sessionLocked = false,
@@ -32,7 +30,6 @@ class SessionState {
   final String? countryCode;
   final String? publicIp;
   final String? errorMessage;
-  final WgConfig? config;
   final bool expired;
   final SessionMeta? meta;
   final bool sessionLocked;
@@ -52,7 +49,6 @@ class SessionState {
     Object? countryCode = _kUnset,
     Object? publicIp = _kUnset,
     Object? errorMessage = _kUnset,
-    Object? config = _kUnset,
     Object? expired = _kUnset,
     Object? meta = _kUnset,
     Object? sessionLocked = _kUnset,
@@ -75,7 +71,6 @@ class SessionState {
       errorMessage: errorMessage == _kUnset
           ? this.errorMessage
           : errorMessage as String?,
-      config: config == _kUnset ? this.config : config as WgConfig?,
       expired: expired == _kUnset ? this.expired : expired as bool,
       meta: meta == _kUnset ? this.meta : meta as SessionMeta?,
       sessionLocked: sessionLocked == _kUnset
@@ -158,7 +153,6 @@ class SessionState {
         countryCode == other.countryCode &&
         publicIp == other.publicIp &&
         errorMessage == other.errorMessage &&
-        config == other.config &&
         expired == other.expired &&
         meta == other.meta &&
         sessionLocked == other.sessionLocked &&
@@ -177,7 +171,6 @@ class SessionState {
         countryCode,
         publicIp,
         errorMessage,
-        config,
         expired,
         meta,
         sessionLocked,

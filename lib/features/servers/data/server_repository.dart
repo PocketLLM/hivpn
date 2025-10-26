@@ -19,45 +19,57 @@ class ServerRepository {
   static const _cacheKey = 'servers_v1';
 
   Future<List<Server>> loadServers() async {
-    final bundled = await _loadBundledServers();
+    developer.log('🔵 ServerRepository.loadServers() called', name: 'ServerRepository');
+
     final cached = await _loadCachedServers();
+    developer.log('🔵 Loaded ${cached.length} cached servers', name: 'ServerRepository');
 
     try {
-      developer.log('Fetching VPNGate catalogue', name: 'ServerRepository');
+      developer.log('🔵 Fetching from VPN Gate API...', name: 'ServerRepository');
       final remoteServers = await _vpnGateApi.fetchServers();
-      developer.log('Received ${remoteServers.length} VPN entries',
-          name: 'ServerRepository');
+      developer.log('✅ Received ${remoteServers.length} VPN entries from API', name: 'ServerRepository');
 
       if (remoteServers.isEmpty) {
-        developer.log('Remote catalogue empty, falling back to cache/bundle',
-            name: 'ServerRepository');
-        return cached.isNotEmpty ? cached : bundled;
-      }
-
-      final enriched = _mergeRecords(bundled, remoteServers);
-      await _saveCache(enriched);
-      return enriched;
-    } catch (error, stackTrace) {
-      developer.log('Failed to refresh catalogue, falling back to cached copy',
-          name: 'ServerRepository', error: error, stackTrace: stackTrace);
-      if (cached.isNotEmpty) {
+        developer.log('⚠️ Remote catalogue empty, using cached servers', name: 'ServerRepository');
         return cached;
       }
-      return bundled;
+
+      // Convert VPN Gate records directly to Server objects
+      final servers = _convertVpnGateRecords(remoteServers);
+      developer.log('✅ Converted to ${servers.length} Server objects', name: 'ServerRepository');
+
+      await _saveCache(servers);
+      return servers;
+    } catch (error, stackTrace) {
+      developer.log('❌ Failed to fetch from API: $error',
+          name: 'ServerRepository', error: error, stackTrace: stackTrace);
+      print('❌ ServerRepository Error: $error');
+      print('❌ StackTrace: $stackTrace');
+      return cached;
     }
   }
 
-  Future<List<Server>> _loadBundledServers() async {
-    final jsonString = await rootBundle.loadString('assets/servers.json');
-    final data = json.decode(jsonString) as Map<String, dynamic>;
-    final rawList = data['servers'] as List<dynamic>?;
-    if (rawList == null) {
-      return const <Server>[];
-    }
-    return rawList
-        .map((item) => Server.fromJson(
-            Map<String, dynamic>.from(item as Map<dynamic, dynamic>)))
-        .toList(growable: false);
+  /// Convert VPN Gate records to Server objects
+  List<Server> _convertVpnGateRecords(List<VpnGateRecord> records) {
+    return records.map((record) {
+      return Server(
+        id: 'vpngate-${record.countryShort.toLowerCase()}-${record.hostName.replaceAll('.', '-')}',
+        name: '${record.countryLong} - ${record.hostName}',
+        countryCode: record.countryShort,
+        publicKey: 'openvpn',
+        endpoint: '${record.ip}:1194',
+        allowedIps: '0.0.0.0/0, ::/0',
+        hostName: record.hostName,
+        ip: record.ip,
+        pingMs: record.pingMs,
+        bandwidth: record.speed,
+        sessions: record.sessions,
+        openVpnConfigDataBase64: record.openVpnConfig,
+        regionName: record.regionName,
+        cityName: record.city,
+        score: record.score,
+      );
+    }).toList();
   }
 
   Future<List<Server>> _loadCachedServers() async {
@@ -106,45 +118,7 @@ class ServerRepository {
     }
   }
 
-  List<Server> _mergeRecords(
-      List<Server> base, List<VpnGateRecord> remoteRecords) {
-    final bestByCountry = <String, VpnGateRecord>{};
 
-    for (final record in remoteRecords) {
-      final key = record.countryShort.toLowerCase();
-      final existing = bestByCountry[key];
-      if (existing == null) {
-        bestByCountry[key] = record;
-        continue;
-      }
-      final existingPing = existing.pingMs ?? 9999;
-      final currentPing = record.pingMs ?? 9999;
-      if (currentPing < existingPing) {
-        bestByCountry[key] = record;
-      }
-    }
-
-    return base
-        .map((server) {
-          final record = bestByCountry[server.countryCode.toLowerCase()];
-          if (record == null) {
-            return server;
-          }
-          return server.copyWith(
-            name: record.countryLong.isNotEmpty ? record.countryLong : server.name,
-            hostName: record.hostName.isNotEmpty ? record.hostName : server.hostName,
-            ip: record.ip.isNotEmpty ? record.ip : server.ip,
-            pingMs: record.pingMs ?? server.pingMs,
-            bandwidth: record.speed ?? server.bandwidth,
-            sessions: record.sessions ?? server.sessions,
-            openVpnConfigDataBase64: record.openVpnConfig,
-            regionName: record.regionName ?? server.regionName,
-            cityName: record.city ?? server.cityName,
-            score: record.score ?? server.score,
-          );
-        })
-        .toList(growable: false);
-  }
 }
 
 final serverRepositoryProvider = Provider<ServerRepository>((ref) {

@@ -8,8 +8,8 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.example.hivpn.vpn.HiVpnTileService
-import com.example.hivpn.vpn.WireGuardService
 import org.json.JSONObject
+import id.laskarmedia.openvpn_flutter.OpenVPNFlutterPlugin
 
 class MainActivity : FlutterActivity() {
     private val channelName = "com.example.vpn/VpnChannel"
@@ -29,32 +29,12 @@ class MainActivity : FlutterActivity() {
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "prepare" -> handlePrepare(result)
-                "connect" -> {
-                    val config = JSONObject(call.arguments as Map<*, *>).toString()
-                    WireGuardService.requestConnect(this, config)
-                    HiVpnTileService.requestTileUpdate(this)
-                    result.success(true)
-                }
-                "disconnect" -> {
-                    WireGuardService.requestDisconnect(this)
-                    HiVpnTileService.requestTileUpdate(this)
-                    result.success(null)
-                }
-                "isConnected" -> result.success(WireGuardService.isActive())
-                "getTunnelStats" -> result.success(WireGuardService.currentStats())
                 "getInstalledApps" -> result.success(fetchInstalledApps())
                 "updateQuickTile" -> {
                     HiVpnTileService.requestTileUpdate(this)
                     result.success(null)
                 }
                 "elapsedRealtime" -> result.success(SystemClock.elapsedRealtime())
-                "extendSession" -> {
-                    val args = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
-                    val duration = (args["durationMs"] as? Number)?.toLong() ?: 0L
-                    val ip = args["publicIp"] as? String
-                    WireGuardService.extendSession(this, duration, ip)
-                    result.success(null)
-                }
                 else -> result.notImplemented()
             }
         }
@@ -78,6 +58,9 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        // OpenVPN permission handler
+        OpenVPNFlutterPlugin.connectWhileGranted(requestCode == 24 && resultCode == RESULT_OK)
+
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == prepareRequestCode) {
             prepareResult?.success(resultCode == RESULT_OK)
@@ -93,9 +76,7 @@ class MainActivity : FlutterActivity() {
 
     private fun handleIntentAction(intent: Intent?) {
         if (intent == null) return
-        val action = intent.action
-            ?: intent.getStringExtra(WireGuardService.EXTRA_NOTIFICATION_ACTION)
-            ?: return
+        val action = intent.action ?: return
 
         if (!::methodChannel.isInitialized) {
             if (action == ACTION_SHOW_EXTEND_AD) {

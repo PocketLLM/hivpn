@@ -1,0 +1,65 @@
+import 'dart:convert';
+
+/// VPN server model from VPN Gate API
+class Vpn {
+  final String hostName;
+  final String ip;
+  final String ping;
+  final int speed;
+  final String countryLong;
+  final String countryShort;
+  final int numVpnSessions;
+  final String openVpnConfigDataBase64;
+
+  Vpn({
+    required this.hostName,
+    required this.ip,
+    required this.ping,
+    required this.speed,
+    required this.countryLong,
+    required this.countryShort,
+    required this.numVpnSessions,
+    required this.openVpnConfigDataBase64,
+  });
+
+  factory Vpn.fromJson(Map<String, dynamic> json) {
+    return Vpn(
+      hostName: json['HostName'] ?? '',
+      ip: json['IP'] ?? '',
+      ping: json['Ping'] ?? '0',
+      speed: json['Speed'] ?? 0,
+      countryLong: json['CountryLong'] ?? '',
+      countryShort: json['CountryShort'] ?? '',
+      numVpnSessions: json['NumVpnSessions'] ?? 0,
+      openVpnConfigDataBase64: json['OpenVPN_ConfigData_Base64'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'HostName': hostName,
+      'IP': ip,
+      'Ping': ping,
+      'Speed': speed,
+      'CountryLong': countryLong,
+      'CountryShort': countryShort,
+      'NumVpnSessions': numVpnSessions,
+      'OpenVPN_ConfigData_Base64': openVpnConfigDataBase64,
+    };
+  }
+
+  /// Get decoded OpenVPN config
+  String get openVpnConfig {
+    try {
+      return utf8.decode(base64.decode(openVpnConfigDataBase64));
+    } catch (e) {
+      return '';
+    }
+  }
+
+  @override
+  String toString() {
+    return 'Vpn(hostName: $hostName, ip: $ip, country: $countryLong, ping: $ping ms)';
+  }
+}
+

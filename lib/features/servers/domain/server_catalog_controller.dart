@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -72,6 +73,8 @@ class ServerCatalogState {
 class ServerCatalogController extends StateNotifier<ServerCatalogState> {
   ServerCatalogController(this._ref)
       : super(const ServerCatalogState()) {
+    print('🎯🎯🎯 ServerCatalogController constructor called!');
+    developer.log('🎯 ServerCatalogController constructor called!', name: 'ServerCatalogController');
     _init();
   }
 
@@ -79,9 +82,16 @@ class ServerCatalogController extends StateNotifier<ServerCatalogState> {
   Timer? _latencyTimer;
 
   Future<void> _init() async {
+    print('🚀🚀🚀 ServerCatalogController._init() called');
+    developer.log('🚀 ServerCatalogController._init() called', name: 'ServerCatalogController');
     state = state.copyWith(isLoading: true, error: null);
     try {
+      print('📡📡📡 Calling ServerRepository.loadServers()');
+      developer.log('📡 Calling ServerRepository.loadServers()', name: 'ServerCatalogController');
       final servers = await _ref.read(serverRepositoryProvider).loadServers();
+      print('✅✅✅ Received ${servers.length} servers from repository');
+      developer.log('✅ Received ${servers.length} servers from repository', name: 'ServerCatalogController');
+
       final prefs = _ref.read(serverPreferencesRepositoryProvider);
       final favorites = prefs?.loadFavorites() ?? <String>{};
       state = state.copyWith(
@@ -89,11 +99,14 @@ class ServerCatalogController extends StateNotifier<ServerCatalogState> {
         favorites: favorites,
         isLoading: false,
       );
+      developer.log('✅ State updated with ${servers.length} servers', name: 'ServerCatalogController');
+
       await _measureLatency();
       _latencyTimer = Timer.periodic(const Duration(minutes: 5), (_) {
         unawaited(_measureLatency());
       });
-    } catch (error) {
+    } catch (error, stackTrace) {
+      developer.log('❌ Error in _init()', name: 'ServerCatalogController', error: error, stackTrace: stackTrace);
       state = state.copyWith(
         isLoading: false,
         error: error.toString(),
@@ -150,6 +163,32 @@ class ServerCatalogController extends StateNotifier<ServerCatalogState> {
     await _ref
         .read(serverPreferencesRepositoryProvider)
         ?.saveLastServerId(server.id);
+  }
+
+  /// Refresh servers from VPN Gate API
+  Future<void> refreshServers() async {
+    developer.log('🔄 Refreshing servers...', name: 'ServerCatalogController');
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final servers = await _ref.read(serverRepositoryProvider).loadServers();
+      developer.log('✅ Refreshed ${servers.length} servers', name: 'ServerCatalogController');
+
+      final prefs = _ref.read(serverPreferencesRepositoryProvider);
+      final favorites = prefs?.loadFavorites() ?? <String>{};
+      state = state.copyWith(
+        servers: servers,
+        favorites: favorites,
+        isLoading: false,
+      );
+
+      await _measureLatency();
+    } catch (error, stackTrace) {
+      developer.log('❌ Error refreshing servers', name: 'ServerCatalogController', error: error, stackTrace: stackTrace);
+      state = state.copyWith(
+        isLoading: false,
+        error: error.toString(),
+      );
+    }
   }
 
   @override

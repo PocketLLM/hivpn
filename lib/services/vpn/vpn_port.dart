@@ -1,12 +1,13 @@
 import 'dart:async';
+import 'models/vpn.dart';
 
-import 'wg_config.dart';
-
+/// Abstract VPN port interface
+/// Now supports OpenVPN instead of WireGuard
 abstract class VpnPort {
   bool get isSupported;
   Stream<String> get intentActions;
   Future<bool> prepare();
-  Future<bool> connect(WgConfig config);
+  Future<bool> connect(Vpn server);
   Future<void> disconnect();
   Future<bool> isConnected();
   Future<Map<String, dynamic>> getTunnelStats();
