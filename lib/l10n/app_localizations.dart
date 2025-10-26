@@ -784,6 +784,10 @@ class AppLocalizations {
   String get settingsLanguageSubtitle => _value('settingsLanguageSubtitle');
   String get settingsLanguageSystem => _value('settingsLanguageSystem');
   String get settingsRewards => _value('settingsRewards');
+  String get settingsLegal => _value('settingsLegal');
+  String get settingsPrivacyPolicy => _value('settingsPrivacyPolicy');
+  String get settingsPrivacyPolicySubtitle =>
+      _value('settingsPrivacyPolicySubtitle');
   String get snackbarBackupCopied => _value('snackbarBackupCopied');
   String get snackbarRestoreComplete => _value('snackbarRestoreComplete');
   String get snackbarRestoreFailed => _value('snackbarRestoreFailed');
@@ -797,6 +801,21 @@ class AppLocalizations {
   String get navSpeedTest => _value('navSpeedTest');
   String get navHistory => _value('navHistory');
   String get navSettings => _value('navSettings');
+  String get privacyPolicyDialogTitle => _value('privacyPolicyDialogTitle');
+  String get privacyPolicyAgreeButton => _value('privacyPolicyAgreeButton');
+  String get privacyPolicyCheckboxLabel =>
+      _value('privacyPolicyCheckboxLabel');
+  String get privacyPolicyAvailableInSettings =>
+      _value('privacyPolicyAvailableInSettings');
+  String get privacyPolicyScrollHintAction =>
+      _value('privacyPolicyScrollHintAction');
+  String get privacyPolicyScrollHint => _value('privacyPolicyScrollHint');
+  String get privacyPolicyScrollWarning =>
+      _value('privacyPolicyScrollWarning');
+  String get privacyPolicyAgreementRequired =>
+      _value('privacyPolicyAgreementRequired');
+  String get privacyPolicyCheckboxReady =>
+      _value('privacyPolicyCheckboxReady');
   String get speedTestCardTitle => _value('speedTestCardTitle');
   String get speedTestCardStart => _value('speedTestCardStart');
   String get speedTestCardRetest => _value('speedTestCardRetest');
