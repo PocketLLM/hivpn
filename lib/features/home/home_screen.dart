@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
 import '../../core/utils/time.dart';
@@ -11,7 +13,6 @@ import '../../services/storage/prefs.dart';
 import '../../services/haptics/haptics_service.dart';
 import '../../theme/colors.dart';
 import '../../widgets/connect_control.dart';
-import '../../widgets/status_pill.dart';
 import '../../l10n/app_localizations.dart';
 import '../onboarding/presentation/spotlight_controller.dart';
 import '../onboarding/presentation/spotlight_tour.dart';
@@ -191,8 +192,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final theme = Theme.of(context);
     final servers = catalog.sortedServers;
 
-    final statusLabel = _statusLabel(session.status, countdown, l10n);
-    final statusColor = _statusColor(session.status);
     final qualityLabel = l10n.connectionQualityLabel(qualityState.quality);
 
     final usedGb = usageState.usedBytes / (1024 * 1024 * 1024);
@@ -201,57 +200,77 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         : null;
     final usageText = l10n.usageSummaryText(usedGb, limitGb);
     final ip = speedState.ip ?? '--';
-    final downloadValue = speedState.downloadMbps > 0 ? speedState.downloadMbps : null;
-    final uploadValue = speedState.uploadMbps > 0 ? speedState.uploadMbps : null;
+    final downloadText = speedState.downloadMbps > 0
+        ? '${speedState.downloadMbps.toStringAsFixed(1)} Mbps'
+        : '--';
+    final uploadText = speedState.uploadMbps > 0
+        ? '${speedState.uploadMbps.toStringAsFixed(1)} Mbps'
+        : '--';
+    final pingText = speedState.ping != null ? '${speedState.ping!.inMilliseconds} ms' : '--';
+    final statusBadgeLabel = _statusBadgeLabel(session.status, l10n);
+    final statusBadgeColor = _statusDotColor(session.status);
+    final titleBaseStyle = theme.textTheme.headlineSmall ?? const TextStyle(fontSize: 24);
+    final titleStyle = GoogleFonts.poppins(
+      textStyle: titleBaseStyle.copyWith(fontWeight: FontWeight.w700),
+    );
 
     final isBusy = session.status == SessionStatus.preparing ||
         session.status == SessionStatus.connecting;
     final isConnected = session.status == SessionStatus.connected;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 160),
+      padding: const EdgeInsets.only(top: 24, bottom: 160),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      l10n.appTitle,
-                      style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      l10n.unlockSecureAccess,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'hi',
+                            style: titleStyle.copyWith(color: theme.colorScheme.onSurface),
+                          ),
+                          TextSpan(
+                            text: 'VPN',
+                            style: titleStyle.copyWith(color: HiVpnColors.accent),
+                          ),
+                        ],
                       ),
+                    ),
+                    const SizedBox(width: 12),
+                    KeyedSubtree(
+                      key: _statusKey,
+                      child: _ConnectionStatusBadge(
+                        label: statusBadgeLabel,
+                        color: statusBadgeColor,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton.filledTonal(
+                      onPressed: _openSettings,
+                      icon: const Icon(Icons.settings_outlined),
+                      tooltip: l10n.settingsTitle,
                     ),
                   ],
                 ),
-              ),
-              IconButton.filledTonal(
-                onPressed: _openSettings,
-                icon: const Icon(Icons.settings_outlined),
-                tooltip: l10n.settingsTitle,
-              ),
-            ],
+                const SizedBox(height: 6),
+                Text(
+                  l10n.unlockSecureAccess,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          _buildOverviewCard(
-            context,
-            l10n: l10n,
-            statusLabel: statusLabel,
-            statusColor: statusColor,
-            qualityLabel: qualityLabel,
-            usageText: usageText,
-            ip: ip,
-          ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
           Center(
             child: Column(
               children: [
@@ -311,23 +330,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                l10n.locations,
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              TextButton(
-                onPressed: () {
-                  unawaited(_showServerPicker(context));
-                },
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  l10n.locations,
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
-                child: Text(l10n.viewAll),
-              ),
-            ],
+                TextButton(
+                  onPressed: () {
+                    unawaited(_showServerPicker(context));
+                  },
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                  child: Text(l10n.viewAll),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           KeyedSubtree(
@@ -338,6 +360,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: servers.length,
+                  padding: EdgeInsets.zero,
                   separatorBuilder: (_, __) => const SizedBox(width: 18),
                   itemBuilder: (context, index) {
                     final server = servers[index];
@@ -369,16 +392,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           const SizedBox(height: 32),
-          _buildInfoFooter(
-            context,
-            l10n: l10n,
-            ip: ip,
-            remaining: countdown,
-            download: downloadValue,
-            upload: uploadValue,
-            ping: speedState.ping,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.homeWidgetTitle,
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 16),
+                _InfoRow(label: l10n.connectionQualityTitle, value: qualityLabel),
+                const SizedBox(height: 12),
+                _InfoRow(label: l10n.settingsUsage, value: usageText),
+                const SizedBox(height: 12),
+                _InfoRow(label: l10n.currentIp, value: ip),
+                const SizedBox(height: 12),
+                _InfoRow(label: l10n.sessionRemaining, value: countdown),
+                const SizedBox(height: 12),
+                _InfoRow(label: 'Download', value: downloadText),
+                const SizedBox(height: 12),
+                _InfoRow(label: 'Upload', value: uploadText),
+                const SizedBox(height: 12),
+                _InfoRow(label: 'Ping', value: pingText),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           Center(
             child: TextButton(
               onPressed: () {
@@ -393,279 +433,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildOverviewCard(BuildContext context,
-      {required AppLocalizations l10n,
-      required String statusLabel,
-      required Color statusColor,
-      required String qualityLabel,
-      required String usageText,
-      required String ip}) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            theme.colorScheme.primary.withOpacity(0.18),
-            theme.colorScheme.secondary.withOpacity(0.12),
-            Colors.white,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(36),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withOpacity(0.14),
-            blurRadius: 40,
-            offset: const Offset(0, 24),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              KeyedSubtree(
-                key: _statusKey,
-                child: StatusPill(
-                  label: statusLabel,
-                  color: statusColor,
-                ),
-              ),
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: Colors.white.withOpacity(0.65),
-                foregroundColor: theme.colorScheme.primary,
-                child: const Icon(Icons.shield_outlined),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text(
-            statusLabel,
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.homeWidgetQualitySummary(qualityLabel),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.7),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: [
-              _InfoBadge(
-                icon: Icons.signal_cellular_alt,
-                label: l10n.connectionQualityTitle,
-                value: qualityLabel,
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primary.withOpacity(0.22),
-                    Colors.white,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              _InfoBadge(
-                icon: Icons.storage_rounded,
-                label: l10n.settingsUsage,
-                value: usageText,
-              ),
-              _InfoBadge(
-                icon: Icons.language,
-                label: l10n.currentIp,
-                value: ip,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoFooter(BuildContext context,
-      {required AppLocalizations l10n,
-      required String ip,
-      required String remaining,
-      required double? download,
-      required double? upload,
-      required Duration? ping}) {
-    final theme = Theme.of(context);
-    final downloadText = download != null ? '${download.toStringAsFixed(1)} Mbps' : '--';
-    final uploadText = upload != null ? '${upload.toStringAsFixed(1)} Mbps' : '--';
-    final pingText = ping != null ? '${ping.inMilliseconds} ms' : '--';
-
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.12)),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withOpacity(0.06),
-            blurRadius: 34,
-            offset: const Offset(0, 22),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: [
-              _InfoBadge(
-                icon: Icons.language,
-                label: l10n.currentIp,
-                value: ip,
-              ),
-              _InfoBadge(
-                icon: Icons.timer_outlined,
-                label: l10n.sessionLabel,
-                value: remaining,
-              ),
-              _InfoBadge(
-                icon: Icons.download_rounded,
-                label: 'Download',
-                value: downloadText,
-              ),
-              _InfoBadge(
-                icon: Icons.upload_rounded,
-                label: 'Upload',
-                value: uploadText,
-              ),
-              _InfoBadge(
-                icon: Icons.podcasts,
-                label: 'Ping',
-                value: pingText,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            onTap: () {
-              unawaited(ref.read(hapticsServiceProvider).selection());
-              setState(() => _tabIndex = 1);
-            },
-            leading: CircleAvatar(
-              radius: 24,
-              backgroundColor: theme.colorScheme.primary.withOpacity(0.12),
-              foregroundColor: theme.colorScheme.primary,
-              child: const Icon(Icons.speed),
-            ),
-            title: Text(
-              l10n.navSpeedTest,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            subtitle: Text(
-              l10n.runSpeedTest,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
-              ),
-            ),
-            trailing: Icon(
-              Icons.chevron_right,
-              color: theme.colorScheme.onSurface.withOpacity(0.5),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildNavigationBar(BuildContext context, AppLocalizations l10n) {
     final theme = Theme.of(context);
+    final backgroundColor = theme.colorScheme.surface.withOpacity(0.45);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(40),
-          border: Border.all(color: theme.colorScheme.outline.withOpacity(0.12)),
-          boxShadow: [
-            BoxShadow(
-              color: theme.colorScheme.primary.withOpacity(0.12),
-              blurRadius: 30,
-              offset: const Offset(0, 18),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            color: backgroundColor,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _NavigationItem(
+                  icon: Icons.shield_outlined,
+                  selected: _tabIndex == 0,
+                  onTap: () {
+                    unawaited(ref.read(hapticsServiceProvider).selection());
+                    setState(() => _tabIndex = 0);
+                  },
+                ),
+                KeyedSubtree(
+                  key: _speedTabKey,
+                  child: _NavigationItem(
+                    icon: Icons.speed,
+                    selected: _tabIndex == 1,
+                    onTap: () {
+                      unawaited(ref.read(hapticsServiceProvider).selection());
+                      setState(() => _tabIndex = 1);
+                    },
+                  ),
+                ),
+                _NavigationItem(
+                  icon: Icons.history,
+                  selected: _tabIndex == 2,
+                  onTap: () {
+                    setState(() => _tabIndex = 2);
+                  },
+                ),
+                _NavigationItem(
+                  icon: Icons.tune,
+                  selected: _tabIndex == 3,
+                  onTap: () {
+                    setState(() => _tabIndex = 3);
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-        child: Row(
-          children: [
-            _NavigationItem(
-              icon: Icons.shield_outlined,
-              label: l10n.navHome,
-              selected: _tabIndex == 0,
-              onTap: () {
-                unawaited(ref.read(hapticsServiceProvider).selection());
-                setState(() => _tabIndex = 0);
-              },
-            ),
-            KeyedSubtree(
-              key: _speedTabKey,
-              child: _NavigationItem(
-                icon: Icons.speed,
-                label: l10n.navSpeedTest,
-                selected: _tabIndex == 1,
-                onTap: () {
-                  unawaited(ref.read(hapticsServiceProvider).selection());
-                  setState(() => _tabIndex = 1);
-                },
-              ),
-            ),
-            _NavigationItem(
-              icon: Icons.history,
-              label: 'History',
-              selected: _tabIndex == 2,
-              onTap: () {
-                setState(() => _tabIndex = 2);
-              },
-            ),
-            _NavigationItem(
-              icon: Icons.tune,
-              label: 'Settings',
-              selected: _tabIndex == 3,
-              onTap: () {
-                setState(() => _tabIndex = 3);
-              },
-            ),
-          ].map((item) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: item))).toList(),
+          ),
         ),
       ),
     );
   }
 
-  Color _statusColor(SessionStatus status) {
+  String _statusBadgeLabel(SessionStatus status, AppLocalizations l10n) {
     switch (status) {
       case SessionStatus.connected:
-        return HiVpnColors.success;
-      case SessionStatus.connecting:
-      case SessionStatus.preparing:
-        return HiVpnColors.info;
-      case SessionStatus.error:
-        return HiVpnColors.error;
-      case SessionStatus.disconnected:
-      default:
-        return Colors.white54;
-    }
-  }
-
-  String _statusLabel(SessionStatus status, String countdown, AppLocalizations l10n) {
-    switch (status) {
-      case SessionStatus.connected:
-        return l10n.connectedCountdownLabel(countdown);
+        return l10n.statusConnected;
       case SessionStatus.connecting:
         return l10n.statusConnecting;
       case SessionStatus.preparing:
@@ -675,6 +502,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case SessionStatus.disconnected:
       default:
         return l10n.statusDisconnected;
+    }
+  }
+
+  Color _statusDotColor(SessionStatus status) {
+    switch (status) {
+      case SessionStatus.connected:
+        return HiVpnColors.success;
+      case SessionStatus.connecting:
+      case SessionStatus.preparing:
+        return HiVpnColors.warning;
+      case SessionStatus.error:
+        return HiVpnColors.error;
+      case SessionStatus.disconnected:
+      default:
+        return HiVpnColors.error;
     }
   }
 
@@ -743,80 +585,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 class _NavigationItem extends StatelessWidget {
   const _NavigationItem({
     required this.icon,
-    required this.label,
     required this.selected,
     required this.onTap,
   });
 
   final IconData icon;
-  final String label;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return InkWell(
-      borderRadius: BorderRadius.circular(28),
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          gradient: selected
-              ? LinearGradient(
-                  colors: [
-                    theme.colorScheme.primary,
-                    theme.colorScheme.secondary,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: selected ? null : Colors.transparent,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: theme.colorScheme.primary.withOpacity(0.28),
-                    blurRadius: 28,
-                    offset: const Offset(0, 14),
-                  ),
-                ]
-              : [],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: selected
-                    ? Colors.white.withOpacity(0.25)
-                    : theme.colorScheme.primary.withOpacity(0.08),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                color: selected
-                    ? Colors.white
-                    : theme.colorScheme.onSurface.withOpacity(0.65),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: selected
-                    ? Colors.white
-                    : theme.colorScheme.onSurface.withOpacity(0.7),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
+    final color = selected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurface.withOpacity(0.6);
+    return IconButton(
+      onPressed: onTap,
+      icon: Icon(icon, color: color, size: 26),
+      splashRadius: 22,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
     );
   }
 }
@@ -963,75 +751,70 @@ class _ServerCard extends StatelessWidget {
   }
 }
 
-class _InfoBadge extends StatelessWidget {
-  const _InfoBadge({
-    required this.icon,
+class _ConnectionStatusBadge extends StatelessWidget {
+  const _ConnectionStatusBadge({
     required this.label,
-    required this.value,
-    this.gradient,
+    required this.color,
   });
 
-  final IconData icon;
   final String label;
-  final String value;
-  final Gradient? gradient;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 140, maxWidth: 220),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: gradient,
-          color: gradient == null ? theme.colorScheme.surface : null,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: theme.colorScheme.outline.withOpacity(0.12)),
-          boxShadow: [
-            BoxShadow(
-              color: theme.colorScheme.primary.withOpacity(0.05),
-              blurRadius: 22,
-              offset: const Offset(0, 12),
-            ),
-          ],
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 18,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.65),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ],
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface.withOpacity(0.8),
+          ),
         ),
-      ),
+      ],
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.6),
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ],
     );
   }
 }
