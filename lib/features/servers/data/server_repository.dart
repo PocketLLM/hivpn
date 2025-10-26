@@ -19,14 +19,18 @@ class ServerRepository {
   static const _cacheKey = 'servers_v1';
 
   Future<List<Server>> loadServers() async {
+    print('🔵🔵🔵 ServerRepository.loadServers() called');
     developer.log('🔵 ServerRepository.loadServers() called', name: 'ServerRepository');
 
     final cached = await _loadCachedServers();
+    print('🔵🔵🔵 Loaded ${cached.length} cached servers');
     developer.log('🔵 Loaded ${cached.length} cached servers', name: 'ServerRepository');
 
     try {
       developer.log('🔵 Fetching from VPN Gate API...', name: 'ServerRepository');
+      print('🔵🔵🔵 About to call _vpnGateApi.fetchServers()');
       final remoteServers = await _vpnGateApi.fetchServers();
+      print('🔵🔵🔵 Returned from _vpnGateApi.fetchServers() with ${remoteServers.length} servers');
       developer.log('✅ Received ${remoteServers.length} VPN entries from API', name: 'ServerRepository');
 
       if (remoteServers.isEmpty) {

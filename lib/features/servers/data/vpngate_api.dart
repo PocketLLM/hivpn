@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:developer' as developer;
 
 import 'package:csv/csv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -83,37 +82,37 @@ class VpnGateApi {
   final http.Client _client;
 
   Future<List<VpnGateRecord>> fetchServers() async {
+    print('🎬 VpnGateApi.fetchServers() called');
     try {
-      developer.log('🎬 fetchServers() started', name: 'VpnGateApi');
       final body = await _downloadCatalogue();
-      developer.log('📥 Downloaded catalogue: ${body.length} bytes', name: 'VpnGateApi');
+      print('📥 Downloaded catalogue: ${body.length} bytes');
 
       if (body.isEmpty) {
-        developer.log('❌ Catalogue is empty', name: 'VpnGateApi');
+        print('❌ Catalogue is empty');
         return const [];
       }
 
       final segments = body.split('#');
-      developer.log('📊 Split into ${segments.length} segments', name: 'VpnGateApi');
+      print('📊 Split into ${segments.length} segments');
 
       if (segments.length < 2) {
-        developer.log('❌ Not enough segments (need at least 2)', name: 'VpnGateApi');
+        print('❌ Not enough segments (need at least 2)');
         return const [];
       }
 
       final csvString = segments[1].replaceAll('*', '');
-      developer.log('📄 CSV string length: ${csvString.length}', name: 'VpnGateApi');
+      print('📄 CSV string length: ${csvString.length}');
 
       final rows = const CsvToListConverter(eol: '\n').convert(csvString);
-      developer.log('📋 Parsed ${rows.length} rows from CSV', name: 'VpnGateApi');
+      print('📋 Parsed ${rows.length} rows from CSV');
 
       if (rows.length <= 1) {
-        developer.log('❌ Not enough rows (need more than 1)', name: 'VpnGateApi');
+        print('❌ Not enough rows (need more than 1)');
         return const [];
       }
 
       final header = rows.first.map((value) => value.toString()).toList();
-      developer.log('🔑 Header: $header', name: 'VpnGateApi');
+      print('🔑 Header: $header');
 
       final records = <VpnGateRecord>[];
       for (var i = 1; i < rows.length; i++) {
@@ -129,36 +128,38 @@ class VpnGateApi {
         final ip = map['IP']?.toString() ?? '';
         final config = map['OpenVPN_ConfigData_Base64']?.toString() ?? '';
         if ((host.isEmpty && ip.isEmpty) || config.isEmpty) {
-          developer.log('⏭️ Skipping row $i: host=$host, ip=$ip, config_len=${config.length}', name: 'VpnGateApi');
           continue;
         }
         records.add(VpnGateRecord.fromMap(map));
       }
-      developer.log('✅ VPNGate catalogue parsed: ${records.length} records',
-          name: 'VpnGateApi');
+      print('✅ VPNGate catalogue parsed: ${records.length} records');
       return records;
     } catch (e, st) {
-      developer.log('❌ fetchServers() failed: $e', name: 'VpnGateApi', error: e, stackTrace: st);
+      print('❌ fetchServers() failed: $e');
+      print('❌ Stack trace: $st');
       return const [];
     }
   }
 
   Future<String> _downloadCatalogue() async {
-    developer.log('🌐 Starting _downloadCatalogue()', name: 'VpnGateApi');
+    print('🌐 _downloadCatalogue() started');
 
     Future<http.Response> performGet(Uri uri) {
-      developer.log('📤 Sending GET request to: $uri', name: 'VpnGateApi');
-      return _client.get(uri, headers: _defaultHeaders);
+      print('📤 Sending GET request to: $uri');
+      return _client.get(uri, headers: _defaultHeaders).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          print('⏱️ GET request timed out after 30 seconds');
+          throw http.ClientException('Request timeout', uri);
+        },
+      );
     }
 
     Future<String> tryFetch(Uri uri) async {
       try {
-        developer.log('🔄 Attempting fetch from: $uri', name: 'VpnGateApi');
+        print('🔄 Attempting fetch from: $uri');
         final response = await performGet(uri);
-        developer.log(
-          '📥 VPNGate response: status=${response.statusCode} length=${response.contentLength ?? response.bodyBytes.length} uri=$uri',
-          name: 'VpnGateApi',
-        );
+        print('📥 VPNGate response: status=${response.statusCode} length=${response.contentLength ?? response.bodyBytes.length}');
         if (response.statusCode != 200) {
           throw http.ClientException(
             'Unexpected status code: ${response.statusCode}',
@@ -166,25 +167,25 @@ class VpnGateApi {
           );
         }
         final decoded = const Utf8Decoder().convert(response.bodyBytes);
-        developer.log('✅ Successfully decoded response: ${decoded.length} chars', name: 'VpnGateApi');
+        print('✅ Successfully decoded response: ${decoded.length} chars');
         return decoded;
       } catch (e, st) {
-        developer.log('❌ tryFetch failed: $e', name: 'VpnGateApi', error: e, stackTrace: st);
+        print('❌ tryFetch failed: $e');
+        print('❌ Stack: $st');
         rethrow;
       }
     }
 
     try {
-      developer.log('🔗 Trying HTTP endpoint: $_endpoint', name: 'VpnGateApi');
+      print('🔗 Trying HTTP endpoint: $_endpoint');
       return await tryFetch(Uri.parse(_endpoint));
     } on http.ClientException catch (error, stackTrace) {
-      developer.log('⚠️ HTTP fetch failed, retrying with HTTPS: $error',
-          name: 'VpnGateApi', error: error, stackTrace: stackTrace);
-      developer.log('🔗 Trying HTTPS endpoint: $_fallbackEndpoint', name: 'VpnGateApi');
+      print('⚠️ HTTP fetch failed, retrying with HTTPS: $error');
+      print('🔗 Trying HTTPS endpoint: $_fallbackEndpoint');
       return tryFetch(Uri.parse(_fallbackEndpoint));
     } catch (error, stackTrace) {
-      developer.log('❌ _downloadCatalogue failed completely: $error',
-          name: 'VpnGateApi', error: error, stackTrace: stackTrace);
+      print('❌ _downloadCatalogue failed completely: $error');
+      print('❌ Stack: $stackTrace');
       rethrow;
     }
   }
