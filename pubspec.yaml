@@ -47,5 +47,4 @@ flutter:
     - assets/servers.json
     - assets/reference/
     - assets/speedtest_endpoints.json
-    - assets/privacy_policy.html
     - assets/CountryFlags/
