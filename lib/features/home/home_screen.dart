@@ -29,7 +29,7 @@ import '../speedtest/presentation/speedtest_screen.dart';
 import '../usage/data_usage_controller.dart';
 import '../usage/data_usage_state.dart';
 import '../settings/domain/preferences_controller.dart';
-import '../settings/presentation/privacy_policy_dialog.dart';
+import '../settings/presentation/privacy_policy_consent_page.dart';
 import '../settings/presentation/settings_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -95,10 +95,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (preferences.privacyPolicyAccepted) {
       return true;
     }
-    final accepted = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => const PrivacyPolicyDialog(),
+    final accepted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => const PrivacyPolicyConsentPage(),
+        fullscreenDialog: true,
+      ),
     );
     if (accepted == true) {
       await notifier.setPrivacyPolicyAccepted(true);
