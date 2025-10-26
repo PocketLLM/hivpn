@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.hivpn"
-    compileSdk = 34
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -23,7 +23,7 @@ android {
     defaultConfig {
         applicationId = "com.example.hivpn"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = flutter.versionCode?.toInt() ?: 1
         versionName = flutter.versionName ?: "1.0.0"
         multiDexEnabled = true
