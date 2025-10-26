@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/server.dart';
@@ -18,129 +19,131 @@ class ServerRepository {
   static const _cacheKey = 'servers_v1';
 
   Future<List<Server>> loadServers() async {
-    List<Server> cached = const [];
-    final prefs = _prefs;
-    if (prefs != null) {
-      try {
-        final raw = prefs.getString(_cacheKey);
-        if (raw != null) {
-          final decoded = json.decode(raw);
-          if (decoded is List) {
-            cached = decoded
-                .map((item) {
-                  if (item is Map) {
-                    return Server.fromJson(
-                        Map<String, dynamic>.from(item as Map<dynamic, dynamic>));
-                  }
-                  return null;
-                })
-                .whereType<Server>()
-                .toList(growable: false);
-          }
-        }
-      } catch (_) {
-        cached = const [];
-      }
-    }
+    final bundled = await _loadBundledServers();
+    final cached = await _loadCachedServers();
 
     try {
       developer.log('Fetching VPNGate catalogue', name: 'ServerRepository');
       final remoteServers = await _vpnGateApi.fetchServers();
       developer.log('Received ${remoteServers.length} VPN entries',
           name: 'ServerRepository');
+
       if (remoteServers.isEmpty) {
-        developer.log('Remote catalogue empty, using cached copy',
+        developer.log('Remote catalogue empty, falling back to cache/bundle',
             name: 'ServerRepository');
+        return cached.isNotEmpty ? cached : bundled;
+      }
+
+      final enriched = _mergeRecords(bundled, remoteServers);
+      await _saveCache(enriched);
+      return enriched;
+    } catch (error, stackTrace) {
+      developer.log('Failed to refresh catalogue, falling back to cached copy',
+          name: 'ServerRepository', error: error, stackTrace: stackTrace);
+      if (cached.isNotEmpty) {
         return cached;
       }
-
-      remoteServers.sort((a, b) {
-        final pingA = a.pingMs ?? 9999;
-        final pingB = b.pingMs ?? 9999;
-        return pingA.compareTo(pingB);
-      });
-
-      final mapped = <Server>[];
-      final seenIds = <String>{};
-
-      for (var i = 0; i < remoteServers.length; i++) {
-        final record = remoteServers[i];
-        final server = _mapRecord(record, i);
-        if (seenIds.add(server.id)) {
-          mapped.add(server);
-        }
-      }
-
-      if (prefs != null) {
-        try {
-          final encoded = json.encode(
-            mapped.map((server) => server.toJson()).toList(growable: false),
-          );
-          await prefs.setString(_cacheKey, encoded);
-          developer.log('Cached ${mapped.length} VPN entries',
-              name: 'ServerRepository');
-        } catch (_) {
-          // Ignore cache write errors.
-        }
-      }
-
-      return mapped;
-    } catch (error, stackTrace) {
-      developer.log('Failed to refresh catalogue, falling back to cache',
-          name: 'ServerRepository', error: error, stackTrace: stackTrace);
-      return cached;
+      return bundled;
     }
   }
 
-  Server _mapRecord(VpnGateRecord record, int index) {
-    String _ensureId() {
-      final base = record.hostName.isNotEmpty ? record.hostName : record.ip;
-      final sanitized = base.replaceAll(RegExp(r'[^a-zA-Z0-9]+'), '-');
-      if (sanitized.isEmpty) {
-        return 'ovpn-$index';
+  Future<List<Server>> _loadBundledServers() async {
+    final jsonString = await rootBundle.loadString('assets/servers.json');
+    final data = json.decode(jsonString) as Map<String, dynamic>;
+    final rawList = data['servers'] as List<dynamic>?;
+    if (rawList == null) {
+      return const <Server>[];
+    }
+    return rawList
+        .map((item) => Server.fromJson(
+            Map<String, dynamic>.from(item as Map<dynamic, dynamic>)))
+        .toList(growable: false);
+  }
+
+  Future<List<Server>> _loadCachedServers() async {
+    final prefs = _prefs;
+    if (prefs == null) {
+      return const <Server>[];
+    }
+    try {
+      final raw = prefs.getString(_cacheKey);
+      if (raw == null) {
+        return const <Server>[];
       }
-      return 'ovpn-${sanitized.toLowerCase()}-$index';
+      final decoded = json.decode(raw);
+      if (decoded is! List) {
+        return const <Server>[];
+      }
+      return decoded
+          .map((item) {
+            if (item is Map) {
+              return Server.fromJson(
+                  Map<String, dynamic>.from(item as Map<dynamic, dynamic>));
+            }
+            return null;
+          })
+          .whereType<Server>()
+          .toList(growable: false);
+    } catch (_) {
+      return const <Server>[];
+    }
+  }
+
+  Future<void> _saveCache(List<Server> servers) async {
+    final prefs = _prefs;
+    if (prefs == null) {
+      return;
+    }
+    try {
+      final encoded = json.encode(
+        servers.map((server) => server.toJson()).toList(growable: false),
+      );
+      await prefs.setString(_cacheKey, encoded);
+      developer.log('Cached ${servers.length} VPN entries',
+          name: 'ServerRepository');
+    } catch (_) {
+      // Ignore cache write errors.
+    }
+  }
+
+  List<Server> _mergeRecords(
+      List<Server> base, List<VpnGateRecord> remoteRecords) {
+    final bestByCountry = <String, VpnGateRecord>{};
+
+    for (final record in remoteRecords) {
+      final key = record.countryShort.toLowerCase();
+      final existing = bestByCountry[key];
+      if (existing == null) {
+        bestByCountry[key] = record;
+        continue;
+      }
+      final existingPing = existing.pingMs ?? 9999;
+      final currentPing = record.pingMs ?? 9999;
+      if (currentPing < existingPing) {
+        bestByCountry[key] = record;
+      }
     }
 
-    final endpointHost = record.ip.isNotEmpty ? record.ip : record.hostName;
-    final endpoint = endpointHost.isNotEmpty ? '$endpointHost:443' : '';
-    final baseName = record.countryLong.isNotEmpty
-        ? '${record.countryLong} • ${record.hostName.isNotEmpty ? record.hostName : endpointHost}'
-        : (record.hostName.isNotEmpty ? record.hostName : endpointHost);
-    final name = baseName.trim().isNotEmpty ? baseName.trim() : 'VPN ${index + 1}';
-
-    String countryCode = record.countryShort.trim();
-    if (countryCode.isEmpty) {
-      final lettersOnly = record.countryLong.replaceAll(RegExp(r'[^A-Za-z]'), '');
-      if (lettersOnly.length >= 2) {
-        countryCode = lettersOnly.substring(0, 2).toUpperCase();
-      } else {
-        countryCode = 'UN';
-      }
-    } else {
-      countryCode = countryCode.toUpperCase();
-    }
-
-    return Server(
-      id: _ensureId(),
-      name: name,
-      countryCode: countryCode,
-      publicKey: 'OPENVPN_PLACEHOLDER',
-      endpoint: endpoint,
-      allowedIps: '0.0.0.0/0, ::/0',
-      mtu: null,
-      keepaliveSeconds: 25,
-      hostName: record.hostName.isNotEmpty ? record.hostName : null,
-      ip: record.ip.isNotEmpty ? record.ip : null,
-      pingMs: record.pingMs,
-      bandwidth: record.speed,
-      sessions: record.sessions,
-      openVpnConfigDataBase64: record.openVpnConfig,
-      regionName:
-          (record.regionName != null && record.regionName!.isNotEmpty) ? record.regionName : null,
-      cityName: (record.city != null && record.city!.isNotEmpty) ? record.city : null,
-      score: record.score,
-    );
+    return base
+        .map((server) {
+          final record = bestByCountry[server.countryCode.toLowerCase()];
+          if (record == null) {
+            return server;
+          }
+          return server.copyWith(
+            name: record.countryLong.isNotEmpty ? record.countryLong : server.name,
+            hostName: record.hostName.isNotEmpty ? record.hostName : server.hostName,
+            ip: record.ip.isNotEmpty ? record.ip : server.ip,
+            pingMs: record.pingMs ?? server.pingMs,
+            bandwidth: record.speed ?? server.bandwidth,
+            sessions: record.sessions ?? server.sessions,
+            openVpnConfigDataBase64: record.openVpnConfig,
+            regionName: record.regionName ?? server.regionName,
+            cityName: record.city ?? server.cityName,
+            score: record.score ?? server.score,
+          );
+        })
+        .toList(growable: false);
   }
 }
 

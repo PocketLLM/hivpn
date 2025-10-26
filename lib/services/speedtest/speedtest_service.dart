@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_speed_test_plus/flutter_speed_test_plus.dart';
 
 class SpeedTestService {
-  SpeedTestService({Dio? dio}) : _dio = dio ?? Dio();
+  SpeedTestService({Dio? dio, FlutterInternetSpeedTest? tester})
+      : _dio = dio ?? Dio(),
+        _tester = tester ?? FlutterInternetSpeedTest();
 
   final Dio _dio;
+  final FlutterInternetSpeedTest _tester;
 
   Future<Duration> ping(Uri endpoint, {Duration timeout = const Duration(seconds: 3)}) async {
     final stopwatch = Stopwatch()..start();
@@ -19,118 +21,46 @@ class SpeedTestService {
     return stopwatch.elapsed;
   }
 
-  Stream<double> download(Uri endpoint) {
-    late StreamController<double> controller;
-    controller = StreamController<double>(onListen: () async {
-      final response = await _dio.getUri<ResponseBody>(
-        endpoint,
-        options: Options(responseType: ResponseType.stream, followRedirects: true),
-      );
-      final body = response.data;
-      if (body == null) {
-        if (!controller.isClosed) {
-          controller.addError(StateError('No response body for download stream'));
-        }
-        await controller.close();
-        return;
-      }
-      final stopwatch = Stopwatch()..start();
-      int receivedBytes = 0;
-      Timer? timer;
-
-      void emit() {
-        final seconds = max(stopwatch.elapsedMilliseconds / 1000, 0.001);
-        final mbps = (receivedBytes * 8) / (seconds * 1000000);
-        if (!controller.isClosed) {
-          controller.add(mbps);
-        }
-      }
-
-      timer = Timer.periodic(const Duration(milliseconds: 500), (_) => emit());
-
-      body.stream.listen(
-        (chunk) {
-          receivedBytes += (chunk as List<int>).length;
-        },
-        onDone: () {
-          timer?.cancel();
-          emit();
-          stopwatch.stop();
-          controller.close();
-        },
-        onError: (Object error, StackTrace stackTrace) {
-          timer?.cancel();
-          stopwatch.stop();
-          controller.addError(error, stackTrace);
-          controller.close();
-        },
-        cancelOnError: true,
-      );
-    });
-    return controller.stream;
-  }
-
-  Stream<double> upload(Uri endpoint, {int bytes = 8 * 1024 * 1024}) {
-    late StreamController<double> controller;
-    controller = StreamController<double>(onListen: () async {
-      final stopwatch = Stopwatch()..start();
-      final payload = Uint8List(bytes);
-      final random = Random();
-      for (var i = 0; i < payload.length; i++) {
-        payload[i] = random.nextInt(256);
-      }
-      int sentBytes = 0;
-      Timer? timer;
-
-      void emit() {
-        final seconds = max(stopwatch.elapsedMilliseconds / 1000, 0.001);
-        final mbps = (sentBytes * 8) / (seconds * 1000000);
-        if (!controller.isClosed) {
-          controller.add(mbps);
-        }
-      }
-
-      timer = Timer.periodic(const Duration(milliseconds: 500), (_) => emit());
-
-      final chunkCount = 64;
-      final chunkSize = bytes ~/ chunkCount;
-      final stream = Stream<List<int>>.fromIterable(
-        List<List<int>>.generate(
-          chunkCount,
-          (index) {
-            final start = chunkSize * index;
-            final end = index == chunkCount - 1 ? payload.length : start + chunkSize;
-            final chunk = payload.sublist(start, end);
-            sentBytes += chunk.length;
-            return chunk;
-          },
-        ),
-      );
-
-      try {
-        await _dio.postUri(
-          endpoint,
-          data: stream,
-          options: Options(headers: {'Content-Length': payload.length.toString()}),
-        );
-        emit();
-      } catch (error, stackTrace) {
-        timer?.cancel();
-        stopwatch.stop();
-        controller.addError(error, stackTrace);
-        controller.close();
-        return;
-      }
-
-      timer?.cancel();
-      stopwatch.stop();
-      controller.close();
-    });
-    return controller.stream;
+  Future<void> startTest({
+    required void Function(TestResult download, TestResult upload) onCompleted,
+    void Function()? onStarted,
+    void Function(TestResult data)? onDownloadComplete,
+    void Function(TestResult data)? onUploadComplete,
+    void Function(double percent, TestResult data)? onProgress,
+    void Function()? onDefaultServerSelectionInProgress,
+    void Function(Client? client)? onDefaultServerSelectionDone,
+    void Function(String errorMessage, String speedTestError)? onError,
+    void Function()? onCancel,
+    String? downloadTestServer,
+    String? uploadTestServer,
+    int? fileSizeBytes,
+    bool useFastApi = true,
+  }) {
+    return _tester.startTesting(
+      onCompleted: onCompleted,
+      onStarted: onStarted,
+      onDownloadComplete: onDownloadComplete,
+      onUploadComplete: onUploadComplete,
+      onProgress: onProgress,
+      onDefaultServerSelectionInProgress: onDefaultServerSelectionInProgress,
+      onDefaultServerSelectionDone: onDefaultServerSelectionDone,
+      onError: onError,
+      onCancel: onCancel,
+      downloadTestServer: downloadTestServer,
+      uploadTestServer: uploadTestServer,
+      fileSizeInBytes: fileSizeBytes ?? _defaultFileSizeBytes,
+      useFastApi: useFastApi,
+    );
   }
 
   Future<String> externalIp(Uri endpoint) async {
     final response = await _dio.getUri<String>(endpoint);
     return response.data?.trim() ?? '';
   }
+
+  bool get isTestInProgress => _tester.isTestInProgress();
+
+  Future<bool> cancelTest() => _tester.cancelTest();
+
+  static const int _defaultFileSizeBytes = 10 * 1024 * 1024;
 }

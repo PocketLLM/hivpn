@@ -2,13 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_speed_test_plus/flutter_speed_test_plus.dart';
 
 import '../../../services/speedtest/speedtest_service.dart';
 import '../../../services/storage/prefs.dart';
 import '../data/speedtest_repository.dart';
 import 'speedtest_state.dart';
-
-typedef _SeriesUpdater = void Function(double value);
 
 double rollingAverage(List<double> values, {int window = 5}) {
   if (values.isEmpty) {
@@ -18,6 +17,16 @@ double rollingAverage(List<double> values, {int window = 5}) {
   final slice = values.sublist(start);
   final sum = slice.fold<double>(0, (acc, value) => acc + value);
   return sum / slice.length;
+}
+
+double _toMbps(TestResult result) {
+  final value = result.transferRate;
+  switch (result.unit) {
+    case SpeedUnit.mbps:
+      return value;
+    case SpeedUnit.kbps:
+      return value / 1000;
+  }
 }
 
 class SpeedTestController extends StateNotifier<SpeedTestState> {
@@ -36,51 +45,149 @@ class SpeedTestController extends StateNotifier<SpeedTestState> {
       final config = await _ref.read(speedTestConfigProvider.future);
       final prefs = await _ref.read(prefsStoreProvider.future);
       final pingEndpoint = config.firstPing;
-      final downloadEndpoint = config.firstDownload;
-      final uploadEndpoint = config.firstUpload;
-
       Duration? ping;
       if (pingEndpoint != null) {
-        ping = await _service.ping(pingEndpoint);
+        try {
+          ping = await _service.ping(pingEndpoint);
+        } catch (_) {
+          ping = null;
+        }
       }
-      state = state.copyWith(status: SpeedTestStatus.running, ping: ping);
-
       final downloadSeries = <double>[];
-      if (downloadEndpoint != null) {
-        await _consumeSeries(
-          _service.download(downloadEndpoint),
-          (value) {
-            downloadSeries.add(value);
-            state = state.copyWith(
-              downloadSeries: List<double>.from(downloadSeries),
-              downloadMbps: rollingAverage(downloadSeries),
-            );
-          },
+      final uploadSeries = <double>[];
+      final downloadServer = config.firstDownload?.toString();
+      final uploadServer = config.firstUpload?.toString();
+      final useFastApi = downloadServer == null || uploadServer == null;
+      final completer = Completer<void>();
+      var hadError = false;
+      DateTime? completionTimestamp;
+
+      state = state.copyWith(
+        status: SpeedTestStatus.running,
+        ping: ping,
+        downloadSeries: const <double>[],
+        uploadSeries: const <double>[],
+        downloadMbps: 0,
+        uploadMbps: 0,
+        errorMessage: null,
+      );
+
+      void emitDownload(double value) {
+        if (value.isNaN || value.isInfinite) {
+          return;
+        }
+        downloadSeries.add(value);
+        state = state.copyWith(
+          downloadSeries: List<double>.from(downloadSeries),
+          downloadMbps: rollingAverage(downloadSeries),
+          errorMessage: null,
         );
       }
 
-      final uploadSeries = <double>[];
-      if (uploadEndpoint != null) {
-        await _consumeSeries(
-          _service.upload(uploadEndpoint),
-          (value) {
-            uploadSeries.add(value);
-            state = state.copyWith(
-              uploadSeries: List<double>.from(uploadSeries),
-              uploadMbps: rollingAverage(uploadSeries),
-            );
-          },
+      void emitUpload(double value) {
+        if (value.isNaN || value.isInfinite) {
+          return;
+        }
+        uploadSeries.add(value);
+        state = state.copyWith(
+          uploadSeries: List<double>.from(uploadSeries),
+          uploadMbps: rollingAverage(uploadSeries),
+          errorMessage: null,
         );
+      }
+
+      await _service.startTest(
+        useFastApi: useFastApi,
+        downloadTestServer: downloadServer,
+        uploadTestServer: uploadServer,
+        onProgress: (percent, data) {
+          final mbps = _toMbps(data);
+          switch (data.type) {
+            case TestType.download:
+              emitDownload(mbps);
+              break;
+            case TestType.upload:
+              emitUpload(mbps);
+              break;
+          }
+        },
+        onDownloadComplete: (data) {
+          final mbps = _toMbps(data);
+          if (downloadSeries.isEmpty || downloadSeries.last != mbps) {
+            emitDownload(mbps);
+          }
+        },
+        onUploadComplete: (data) {
+          final mbps = _toMbps(data);
+          if (uploadSeries.isEmpty || uploadSeries.last != mbps) {
+            emitUpload(mbps);
+          }
+        },
+        onCompleted: (download, upload) {
+          completionTimestamp = DateTime.now().toUtc();
+          final downloadMbps = _toMbps(download);
+          final uploadMbps = _toMbps(upload);
+          if (downloadSeries.isEmpty) {
+            downloadSeries.add(downloadMbps);
+          }
+          if (uploadSeries.isEmpty) {
+            uploadSeries.add(uploadMbps);
+          }
+          state = state.copyWith(
+            status: SpeedTestStatus.complete,
+            downloadMbps: downloadMbps,
+            uploadMbps: uploadMbps,
+            downloadSeries: List<double>.from(downloadSeries),
+            uploadSeries: List<double>.from(uploadSeries),
+            lastRun: completionTimestamp,
+            errorMessage: null,
+          );
+          if (!completer.isCompleted) {
+            completer.complete();
+          }
+        },
+        onError: (message, code) {
+          hadError = true;
+          state = state.copyWith(
+            status: SpeedTestStatus.error,
+            errorMessage: message.isNotEmpty ? message : code,
+            downloadSeries: const <double>[],
+            uploadSeries: const <double>[],
+          );
+          if (!completer.isCompleted) {
+            completer.complete();
+          }
+        },
+        onCancel: () {
+          hadError = true;
+          state = state.copyWith(
+            status: SpeedTestStatus.error,
+            errorMessage: 'Speed test was cancelled.',
+            downloadSeries: const <double>[],
+            uploadSeries: const <double>[],
+          );
+          if (!completer.isCompleted) {
+            completer.complete();
+          }
+        },
+        onStarted: () {
+          state = state.copyWith(status: SpeedTestStatus.running, errorMessage: null);
+        },
+      );
+
+      await completer.future;
+
+      if (hadError || state.status != SpeedTestStatus.complete) {
+        return;
       }
 
       final ip = await _service.externalIp(config.ipEndpoint);
-      final completed = state.copyWith(
-        status: SpeedTestStatus.complete,
-        lastRun: DateTime.now().toUtc(),
+      final updated = state.copyWith(
         ip: ip.isNotEmpty ? ip : state.ip,
+        lastRun: completionTimestamp ?? state.lastRun ?? DateTime.now().toUtc(),
       );
-      state = completed;
-      await prefs.setString('speedtest_last', jsonEncode(_serializeResult(completed)));
+      state = updated;
+      await prefs.setString('speedtest_last', jsonEncode(_serializeResult(updated)));
     } catch (error) {
       state = state.copyWith(
         status: SpeedTestStatus.error,
@@ -128,11 +235,6 @@ class SpeedTestController extends StateNotifier<SpeedTestState> {
     };
   }
 
-  Future<void> _consumeSeries(Stream<double> stream, _SeriesUpdater onValue) async {
-    await for (final value in stream) {
-      onValue(value);
-    }
-  }
 }
 
 final speedTestServiceProvider = Provider<SpeedTestService>((ref) {
