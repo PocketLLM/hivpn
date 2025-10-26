@@ -60,7 +60,11 @@ class SessionController extends StateNotifier<SessionState> {
   Server? _queuedServer;
 
   Future<void> _bootstrap() async {
-    await _adService.initialize();
+    try {
+      await _adService.initialize();
+    } catch (error) {
+      debugPrint('Ad service initialization failed: $error');
+    }
     _intentSubscription = _vpnPort.intentActions.listen(_handleIntentAction);
     await _restoreSession();
     _startTicker();
@@ -158,6 +162,13 @@ class SessionController extends StateNotifier<SessionState> {
   }) async {
     if (state.status == SessionStatus.connected) {
       throw const AppError('Already connected.');
+    }
+    if (!_vpnPort.isSupported) {
+      state = state.copyWith(
+        status: SessionStatus.error,
+        errorMessage: 'VPN is not supported on this device.',
+      );
+      return;
     }
     final settingsState = _ref.read(settingsControllerProvider);
     if (!settingsState.protocol.protocol.isSupported) {

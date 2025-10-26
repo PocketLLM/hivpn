@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
-
 import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -153,24 +151,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     ref.listen<SessionState>(sessionControllerProvider, _onSessionChanged);
     final l10n = context.l10n;
+    final theme = Theme.of(context);
     return Scaffold(
+      extendBody: true,
       body: SafeArea(
-        child: Column(
+        top: true,
+        bottom: false,
+        child: IndexedStack(
+          index: _tabIndex,
           children: [
-            Expanded(
-              child: IndexedStack(
-                index: _tabIndex,
-                children: [
-                  _buildHomeTab(context, l10n),
-                  const SpeedTestScreen(),
-                  HistoryScreen(),
-                  const SettingsScreen(),
-                ],
-              ),
-            ),
-            _buildNavigationBar(context, l10n),
+            _buildHomeTab(context, l10n),
+            const SpeedTestScreen(),
+            HistoryScreen(),
+            const SettingsScreen(),
           ],
         ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        height: 70,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: theme.colorScheme.primary.withOpacity(0.12),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+        selectedIndex: _tabIndex,
+        onDestinationSelected: (index) {
+          if (index == _tabIndex) {
+            return;
+          }
+          unawaited(ref.read(hapticsServiceProvider).selection());
+          setState(() => _tabIndex = index);
+        },
+        destinations: [
+          NavigationDestination(
+            icon: const Icon(Icons.shield_outlined),
+            selectedIcon: const Icon(Icons.shield),
+            label: l10n.navHome,
+          ),
+          NavigationDestination(
+            key: _speedTabKey,
+            icon: const Icon(Icons.speed_outlined),
+            selectedIcon: const Icon(Icons.speed),
+            label: l10n.navSpeedTest,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.history_outlined),
+            selectedIcon: const Icon(Icons.history),
+            label: l10n.navHistory,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings),
+            label: l10n.navSettings,
+          ),
+        ],
       ),
     );
   }
@@ -433,62 +466,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildNavigationBar(BuildContext context, AppLocalizations l10n) {
-    final theme = Theme.of(context);
-    final backgroundColor = theme.colorScheme.surface.withOpacity(0.45);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            color: backgroundColor,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _NavigationItem(
-                  icon: Icons.shield_outlined,
-                  selected: _tabIndex == 0,
-                  onTap: () {
-                    unawaited(ref.read(hapticsServiceProvider).selection());
-                    setState(() => _tabIndex = 0);
-                  },
-                ),
-                KeyedSubtree(
-                  key: _speedTabKey,
-                  child: _NavigationItem(
-                    icon: Icons.speed,
-                    selected: _tabIndex == 1,
-                    onTap: () {
-                      unawaited(ref.read(hapticsServiceProvider).selection());
-                      setState(() => _tabIndex = 1);
-                    },
-                  ),
-                ),
-                _NavigationItem(
-                  icon: Icons.history,
-                  selected: _tabIndex == 2,
-                  onTap: () {
-                    setState(() => _tabIndex = 2);
-                  },
-                ),
-                _NavigationItem(
-                  icon: Icons.tune,
-                  selected: _tabIndex == 3,
-                  onTap: () {
-                    setState(() => _tabIndex = 3);
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   String _statusBadgeLabel(SessionStatus status, AppLocalizations l10n) {
     switch (status) {
       case SessionStatus.connected:
@@ -579,33 +556,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final codeUnit = char.codeUnitAt(0) - 0x41 + base;
       return String.fromCharCode(codeUnit);
     }).join();
-  }
-}
-
-class _NavigationItem extends StatelessWidget {
-  const _NavigationItem({
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = selected
-        ? theme.colorScheme.primary
-        : theme.colorScheme.onSurface.withOpacity(0.6);
-    return IconButton(
-      onPressed: onTap,
-      icon: Icon(icon, color: color, size: 26),
-      splashRadius: 22,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-    );
   }
 }
 

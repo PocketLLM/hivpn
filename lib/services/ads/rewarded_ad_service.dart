@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -11,12 +12,31 @@ class RewardedAdService {
 
   RewardedAd? _loadedAd;
   Completer<void>? _unlockCompleter;
+  bool _adsSupported = false;
+  bool _initialized = false;
 
   Future<void> initialize() async {
-    await MobileAds.instance.initialize();
+    if (_initialized) {
+      return;
+    }
+    _initialized = true;
+    if (!_platformSupportsAds) {
+      _adsSupported = false;
+      return;
+    }
+    try {
+      await MobileAds.instance.initialize();
+      _adsSupported = true;
+    } catch (error) {
+      debugPrint('Failed to initialize Mobile Ads: $error');
+      _adsSupported = false;
+    }
   }
 
   Future<void> _loadAd(AppLocalizations l10n) async {
+    if (!_adsSupported) {
+      throw Exception(l10n.adFailedToLoad);
+    }
     final completer = Completer<void>();
     RewardedAd.load(
       adUnitId: _testAdUnitId,
@@ -42,6 +62,16 @@ class RewardedAdService {
     _unlockCompleter = Completer<void>();
 
     final l10n = AppLocalizations.of(context);
+
+    if (!_initialized) {
+      await initialize();
+    }
+
+    if (!_adsSupported) {
+      _unlockCompleter!.complete();
+      _unlockCompleter = null;
+      return;
+    }
 
     try {
       await _loadAd(l10n);
@@ -89,6 +119,19 @@ class RewardedAdService {
     });
 
     await _unlockCompleter!.future;
+  }
+
+  bool get _platformSupportsAds {
+    if (kIsWeb) {
+      return false;
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+        return true;
+      default:
+        return false;
+    }
   }
 }
 

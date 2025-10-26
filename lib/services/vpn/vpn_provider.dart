@@ -8,5 +8,31 @@ final vpnPortProvider = Provider<VpnPort>((ref) {
   if (defaultTargetPlatform == TargetPlatform.android) {
     return AndroidVpnChannel();
   }
-  throw UnsupportedError('VpnPort not implemented for this platform');
+  return _UnsupportedVpnPort();
 });
+
+class _UnsupportedVpnPort implements VpnPort {
+  @override
+  bool get isSupported => false;
+
+  @override
+  Stream<String> get intentActions => const Stream<String>.empty();
+
+  @override
+  Future<bool> connect(WgConfig config) async => false;
+
+  @override
+  Future<void> disconnect() async {}
+
+  @override
+  Future<void> extendSession(Duration duration, {String? publicIp}) async {}
+
+  @override
+  Future<Map<String, dynamic>> getTunnelStats() async => <String, dynamic>{};
+
+  @override
+  Future<bool> isConnected() async => false;
+
+  @override
+  Future<bool> prepare() async => false;
+}

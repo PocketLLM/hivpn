@@ -24,6 +24,9 @@ class AndroidVpnChannel implements VpnPort {
       StreamController<String>.broadcast();
 
   @override
+  bool get isSupported => true;
+
+  @override
   Stream<String> get intentActions => _intentActionsController.stream;
 
   Future<void> _handleMethodCall(MethodCall call) async {
