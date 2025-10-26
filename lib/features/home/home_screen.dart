@@ -641,8 +641,8 @@ class _ServerCard extends StatelessWidget {
     final latencyText = latency != null ? '${latency!} ms' : '--';
 
     return Container(
-      width: 160,
-      height: 200,
+      width: 200,
+      height: 240,
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
         color: selected 
