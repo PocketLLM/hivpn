@@ -33,6 +33,12 @@ class SpeedTestState extends Equatable {
       ? (downloadMbps / 150).clamp(0, 1)
       : 0;
 
+  bool get isBusy =>
+      status == SpeedTestStatus.running || status == SpeedTestStatus.preparing;
+
+  bool get hasResult => status == SpeedTestStatus.complete &&
+      (downloadSeries.isNotEmpty || uploadSeries.isNotEmpty || ping != null);
+
   SpeedTestState copyWith({
     SpeedTestStatus? status,
     Duration? ping,

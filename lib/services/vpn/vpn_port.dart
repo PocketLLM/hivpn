@@ -3,6 +3,7 @@ import 'dart:async';
 import 'wg_config.dart';
 
 abstract class VpnPort {
+  bool get isSupported;
   Stream<String> get intentActions;
   Future<bool> prepare();
   Future<bool> connect(WgConfig config);

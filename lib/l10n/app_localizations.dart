@@ -84,6 +84,7 @@ class AppLocalizations {
       'settingsUsageNoLimit': 'No monthly limit set',
       'settingsSetLimit': 'Set limit',
       'settingsResetUsage': 'Reset usage',
+      'settingsRemoveLimit': 'Remove limit',
       'settingsBackup': 'Backup & restore',
       'settingsCreateBackup': 'Create backup',
       'settingsRestore': 'Restore backup',
@@ -105,6 +106,8 @@ class AppLocalizations {
       'adMustComplete': 'You must complete the ad to connect.',
       'navHome': 'Home',
       'navSpeedTest': 'Speed Test',
+      'navHistory': 'History',
+      'navSettings': 'Settings',
     },
     'es': {
       'appTitle': 'HiVPN',
@@ -168,6 +171,7 @@ class AppLocalizations {
       'settingsUsageNoLimit': 'Sin límite mensual establecido',
       'settingsSetLimit': 'Definir límite',
       'settingsResetUsage': 'Restablecer uso',
+      'settingsRemoveLimit': 'Eliminar límite',
       'settingsBackup': 'Copia y restauración',
       'settingsCreateBackup': 'Crear copia',
       'settingsRestore': 'Restaurar copia',
@@ -189,6 +193,8 @@ class AppLocalizations {
       'adMustComplete': 'Debes completar el anuncio para conectarte.',
       'navHome': 'Inicio',
       'navSpeedTest': 'Prueba de velocidad',
+      'navHistory': 'Historial',
+      'navSettings': 'Configuraciones',
     },
     'hi': {
       'appTitle': 'HiVPN',
@@ -252,6 +258,7 @@ class AppLocalizations {
       'settingsUsageNoLimit': 'कोई मासिक सीमा सेट नहीं है',
       'settingsSetLimit': 'सीमा सेट करें',
       'settingsResetUsage': 'उपयोग रीसेट करें',
+      'settingsRemoveLimit': 'सीमा हटाएं',
       'settingsBackup': 'बैकअप और पुनर्स्थापना',
       'settingsCreateBackup': 'बैकअप बनाएँ',
       'settingsRestore': 'बैकअप पुनर्स्थापित करें',
@@ -273,6 +280,8 @@ class AppLocalizations {
       'adMustComplete': 'कनेक्ट करने के लिए आपको विज्ञापन पूरा करना होगा।',
       'navHome': 'होम',
       'navSpeedTest': 'स्पीड टेस्ट',
+      'navHistory': 'इतिहास',
+      'navSettings': 'सेटिंग्स',
     },
   };
 
@@ -337,6 +346,7 @@ class AppLocalizations {
   String get settingsUsageNoLimit => _value('settingsUsageNoLimit');
   String get settingsSetLimit => _value('settingsSetLimit');
   String get settingsResetUsage => _value('settingsResetUsage');
+  String get settingsRemoveLimit => _value('settingsRemoveLimit');
   String get settingsBackup => _value('settingsBackup');
   String get settingsCreateBackup => _value('settingsCreateBackup');
   String get settingsRestore => _value('settingsRestore');
@@ -358,6 +368,8 @@ class AppLocalizations {
   String get adMustComplete => _value('adMustComplete');
   String get navHome => _value('navHome');
   String get navSpeedTest => _value('navSpeedTest');
+  String get navHistory => _value('navHistory');
+  String get navSettings => _value('navSettings');
 
   String connectionQualityLabel(ConnectionQuality quality) {
     switch (quality) {

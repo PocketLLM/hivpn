@@ -31,7 +31,7 @@ class SpeedTestController extends StateNotifier<SpeedTestState> {
     if (state.status == SpeedTestStatus.running || state.status == SpeedTestStatus.preparing) {
       return;
     }
-    state = state.copyWith(status: SpeedTestStatus.preparing, errorMessage: null);
+    state = SpeedTestState(status: SpeedTestStatus.preparing);
     try {
       final config = await _ref.read(speedTestConfigProvider.future);
       final prefs = await _ref.read(prefsStoreProvider.future);
@@ -85,6 +85,8 @@ class SpeedTestController extends StateNotifier<SpeedTestState> {
       state = state.copyWith(
         status: SpeedTestStatus.error,
         errorMessage: error.toString(),
+        downloadSeries: const <double>[],
+        uploadSeries: const <double>[],
       );
     }
   }
