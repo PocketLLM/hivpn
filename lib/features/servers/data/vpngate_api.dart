@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:csv/csv.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,12 +73,23 @@ class VpnGateApi {
   VpnGateApi({http.Client? client}) : _client = client ?? http.Client();
 
   static const _endpoint = 'http://www.vpngate.net/api/iphone/';
+  static const _userAgent =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36';
 
   final http.Client _client;
 
   Future<List<VpnGateRecord>> fetchServers() async {
     final uri = Uri.parse(_endpoint);
-    final response = await _client.get(uri);
+    final response = await _client
+        .get(
+          uri,
+          headers: {
+            'User-Agent': _userAgent,
+            'Accept': 'text/plain, */*',
+            'Connection': 'close',
+          },
+        )
+        .timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) {
       throw http.ClientException(
         'Unexpected status code: ${response.statusCode}',
@@ -87,6 +100,10 @@ class VpnGateApi {
     final body = response.body;
     if (body.isEmpty) {
       return const [];
+    }
+
+    if (body.toLowerCase().contains('domain forbidden')) {
+      throw http.ClientException('Domain forbidden', uri);
     }
 
     final segments = body.split('#');

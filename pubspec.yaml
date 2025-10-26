@@ -44,6 +44,5 @@ flutter:
   generate: true
   
   assets:
-    - assets/servers.json
     - assets/reference/
     - assets/speedtest_endpoints.json

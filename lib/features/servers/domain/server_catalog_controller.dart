@@ -15,6 +15,8 @@ class ServerCatalogState {
     this.query = '',
     this.isLoading = true,
     this.error,
+    this.source = ServerLoadSource.remote,
+    this.lastUpdated,
   });
 
   final List<Server> servers;
@@ -23,6 +25,8 @@ class ServerCatalogState {
   final String query;
   final bool isLoading;
   final String? error;
+  final ServerLoadSource source;
+  final DateTime? lastUpdated;
 
   List<Server> get sortedServers {
     final comparator = (Server a, Server b) {
@@ -57,6 +61,10 @@ class ServerCatalogState {
     String? query,
     bool? isLoading,
     String? error,
+    bool resetError = false,
+    ServerLoadSource? source,
+    DateTime? lastUpdated,
+    bool resetLastUpdated = false,
   }) {
     return ServerCatalogState(
       servers: servers ?? this.servers,
@@ -64,7 +72,10 @@ class ServerCatalogState {
       latencyMs: latencyMs ?? this.latencyMs,
       query: query ?? this.query,
       isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
+      error: resetError ? null : (error ?? this.error),
+      source: source ?? this.source,
+      lastUpdated:
+          resetLastUpdated ? null : (lastUpdated ?? this.lastUpdated),
     );
   }
 }
@@ -79,24 +90,40 @@ class ServerCatalogController extends StateNotifier<ServerCatalogState> {
   Timer? _latencyTimer;
 
   Future<void> _init() async {
-    state = state.copyWith(isLoading: true, error: null);
+    await _loadServers(background: false);
+  }
+
+  Future<void> refreshServers() async {
+    await _loadServers(background: true);
+  }
+
+  Future<void> _loadServers({required bool background}) async {
+    if (!background) {
+      state = state.copyWith(isLoading: true, resetError: true);
+    }
     try {
-      final servers = await _ref.read(serverRepositoryProvider).loadServers();
+      final result = await _ref.read(serverRepositoryProvider).loadServers();
       final prefs = _ref.read(serverPreferencesRepositoryProvider);
       final favorites = prefs?.loadFavorites() ?? <String>{};
       state = state.copyWith(
-        servers: servers,
+        servers: result.servers,
         favorites: favorites,
         isLoading: false,
+        source: result.source,
+        lastUpdated: result.lastUpdated,
+        resetError: true,
       );
       await _measureLatency();
-      _latencyTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      _latencyTimer ??= Timer.periodic(const Duration(minutes: 5), (_) {
         unawaited(_measureLatency());
       });
     } catch (error) {
+      final hasServers = state.servers.isNotEmpty;
       state = state.copyWith(
         isLoading: false,
-        error: error.toString(),
+        error: hasServers ? state.error : error.toString(),
+        latencyMs: hasServers ? state.latencyMs : const {},
+        resetLastUpdated: !hasServers,
       );
     }
   }
