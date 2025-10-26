@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,11 +14,17 @@ class PreferencesController extends StateNotifier<PreferencesState> {
   }
 
   final Ref _ref;
+  final Completer<void> _hydrated = Completer<void>();
+
+  Future<void> get ready => _hydrated.future;
 
   Future<void> _hydrate() async {
     final prefs = await _ref.read(prefsStoreProvider.future);
     final raw = prefs.getString(_prefsKey);
     if (raw == null) {
+      if (!_hydrated.isCompleted) {
+        _hydrated.complete();
+      }
       return;
     }
     try {
@@ -25,6 +32,9 @@ class PreferencesController extends StateNotifier<PreferencesState> {
       state = PreferencesState.fromJson(data);
     } catch (_) {
       // ignore corrupt preferences
+    }
+    if (!_hydrated.isCompleted) {
+      _hydrated.complete();
     }
   }
 
@@ -45,6 +55,11 @@ class PreferencesController extends StateNotifier<PreferencesState> {
 
   Future<void> setLocale(String? code) async {
     state = state.copyWith(localeCode: code);
+    await _persist();
+  }
+
+  Future<void> setPrivacyPolicyAccepted(bool accepted) async {
+    state = state.copyWith(privacyPolicyAccepted: accepted);
     await _persist();
   }
 }

@@ -10,6 +10,7 @@ import '../../usage/data_usage_state.dart';
 import '../domain/preferences_controller.dart';
 import '../domain/preferences_state.dart';
 import '../../../services/haptics/haptics_service.dart';
+import 'privacy_policy_page.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -47,6 +48,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         const Divider(),
         const SizedBox(height: 24),
         _buildLanguageSection(context, preferences),
+        const SizedBox(height: 24),
+        const Divider(),
+        const SizedBox(height: 24),
+        _buildLegalSection(context),
       ],
     );
   }
@@ -254,6 +259,39 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               await ref.read(hapticsServiceProvider).selection();
               await ref.read(preferencesControllerProvider.notifier).setLocale(value);
             }());
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLegalSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(context, l10n.settingsLegal),
+        const SizedBox(height: 12),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.privacy_tip_outlined, color: theme.colorScheme.primary),
+          title: Text(
+            l10n.settingsPrivacyPolicy,
+            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            l10n.settingsPrivacyPolicySubtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.65),
+            ),
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            await ref.read(hapticsServiceProvider).selection();
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
+            );
           },
         ),
       ],
