@@ -29,8 +29,6 @@ dependencies:
   http: ^1.2.1
   web_socket_channel: ^2.4.0
   csv: ^5.0.2
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
 
 dev_dependencies:
   flutter_test:

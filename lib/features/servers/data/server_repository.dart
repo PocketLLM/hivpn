@@ -1,43 +1,45 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 
 import '../domain/server.dart';
 import 'vpngate_api.dart';
+import '../../../services/storage/prefs.dart';
 
 class ServerRepository {
-  ServerRepository({required VpnGateApi vpnGateApi}) : _vpnGateApi = vpnGateApi;
+  ServerRepository({required VpnGateApi vpnGateApi, PrefsStore? prefs})
+      : _vpnGateApi = vpnGateApi,
+        _prefs = prefs;
 
   final VpnGateApi _vpnGateApi;
+  final PrefsStore? _prefs;
 
-  static const _cacheBoxName = 'server_cache_box';
   static const _cacheKey = 'servers_v1';
-
-  Future<Box<dynamic>> _openCacheBox() async {
-    if (Hive.isBoxOpen(_cacheBoxName)) {
-      return Hive.box<dynamic>(_cacheBoxName);
-    }
-    return Hive.openBox<dynamic>(_cacheBoxName);
-  }
 
   Future<List<Server>> loadServers() async {
     List<Server> cached = const [];
-    try {
-      final box = await _openCacheBox();
-      final raw = box.get(_cacheKey);
-      if (raw is List) {
-        cached = raw
-            .map((item) {
-              if (item is Map) {
-                return Server.fromJson(
-                    Map<String, dynamic>.from(item as Map<dynamic, dynamic>));
-              }
-              return null;
-            })
-            .whereType<Server>()
-            .toList(growable: false);
+    final prefs = _prefs;
+    if (prefs != null) {
+      try {
+        final raw = prefs.getString(_cacheKey);
+        if (raw != null) {
+          final decoded = json.decode(raw);
+          if (decoded is List) {
+            cached = decoded
+                .map((item) {
+                  if (item is Map) {
+                    return Server.fromJson(
+                        Map<String, dynamic>.from(item as Map<dynamic, dynamic>));
+                  }
+                  return null;
+                })
+                .whereType<Server>()
+                .toList(growable: false);
+          }
+        }
+      } catch (_) {
+        cached = const [];
       }
-    } catch (_) {
-      cached = const [];
     }
 
     try {
@@ -63,14 +65,15 @@ class ServerRepository {
         }
       }
 
-      try {
-        final box = await _openCacheBox();
-        await box.put(
-          _cacheKey,
-          mapped.map((server) => server.toJson()).toList(growable: false),
-        );
-      } catch (_) {
-        // Ignore cache write errors.
+      if (prefs != null) {
+        try {
+          final encoded = json.encode(
+            mapped.map((server) => server.toJson()).toList(growable: false),
+          );
+          await prefs.setString(_cacheKey, encoded);
+        } catch (_) {
+          // Ignore cache write errors.
+        }
       }
 
       return mapped;
@@ -133,6 +136,10 @@ class ServerRepository {
 
 final serverRepositoryProvider = Provider<ServerRepository>((ref) {
   final api = ref.watch(vpnGateApiProvider);
-  return ServerRepository(vpnGateApi: api);
+  final prefs = ref.watch(prefsStoreProvider).maybeWhen(
+        data: (value) => value,
+        orElse: () => null,
+      );
+  return ServerRepository(vpnGateApi: api, prefs: prefs);
 });
 
