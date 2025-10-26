@@ -1,0 +1,7 @@
+{
+  "@@locale": "en",
+  "snackbarLimitSaved": "Data limit saved successfully",
+  "@snackbarLimitSaved": {
+    "description": "Message shown when data limit is saved"
+  }
+}

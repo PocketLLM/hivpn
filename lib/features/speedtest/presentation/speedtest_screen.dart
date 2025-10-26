@@ -541,7 +541,7 @@ class _SpeedGaugeState extends State<SpeedGauge> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final normalizedEnd = widget.value.clamp(0, 1);
+    final normalizedEnd = widget.value.clamp(0, 1).toDouble();
     return SizedBox(
       width: 240,
       height: 240,

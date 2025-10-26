@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../l10n/app_localizations.dart';
 import '../../referral/domain/referral_controller.dart';
 import '../../referral/domain/referral_state.dart';
@@ -402,8 +401,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       await notifier.setMonthlyLimit(result.limitBytes);
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l10n.snackbarLimitSaved)));
+    final l10n = context.l10n;
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l10n.snackbarLimitSaved)));
+    }
   }
 
   Future<void> _handleResetUsage() async {

@@ -48,6 +48,7 @@ class AppLocalizations {
       'statusConnected': 'Connected',
       'statusConnecting': 'Connecting…',
       'statusPreparing': 'Preparing…',
+      'snackbarLimitSaved': 'Data limit saved successfully',
       'statusError': 'Error',
       'statusDisconnected': 'Disconnected',
       'selectServerToBegin': 'Select a server to begin',
