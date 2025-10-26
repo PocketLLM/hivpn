@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/server.dart';
@@ -52,10 +51,18 @@ class ServerRepository {
   /// Convert VPN Gate records to Server objects
   List<Server> _convertVpnGateRecords(List<VpnGateRecord> records) {
     return records.map((record) {
+      final rawSlug = record.hostName.isNotEmpty
+          ? record.hostName.replaceAll('.', '-')
+          : record.ip.replaceAll(RegExp(r'[.:]'), '-');
+      final hostSlug = rawSlug.replaceAll(RegExp(r'[^a-zA-Z0-9-]'), '-');
+      final displayName = record.hostName.isNotEmpty
+          ? '${record.countryLong} • ${record.hostName}'
+          : '${record.countryLong} • ${record.ip}';
       return Server(
-        id: 'vpngate-${record.countryShort.toLowerCase()}-${record.hostName.replaceAll('.', '-')}',
-        name: '${record.countryLong} - ${record.hostName}',
+        id: 'vpngate-${record.countryShort.toLowerCase()}-$hostSlug',
+        name: displayName,
         countryCode: record.countryShort,
+        countryName: record.countryLong,
         publicKey: 'openvpn',
         endpoint: '${record.ip}:1194',
         allowedIps: '0.0.0.0/0, ::/0',
@@ -63,6 +70,8 @@ class ServerRepository {
         ip: record.ip,
         pingMs: record.pingMs,
         bandwidth: record.speed,
+        downloadSpeed: record.speed,
+        uploadSpeed: record.speed,
         sessions: record.sessions,
         openVpnConfigDataBase64: record.openVpnConfig,
         regionName: record.regionName,

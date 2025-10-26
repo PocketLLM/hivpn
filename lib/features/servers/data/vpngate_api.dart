@@ -77,7 +77,11 @@ class VpnGateApi {
   static const _fallbackEndpoint = 'https://www.vpngate.net/api/iphone/';
   static const _defaultHeaders = {
     'User-Agent':
-        'HiVPN/1.0'
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+    'Accept': 'text/plain,application/json;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Connection': 'keep-alive',
+    'Referer': 'http://www.vpngate.net/',
   };
 
   final http.Client _client;
@@ -104,7 +108,14 @@ class VpnGateApi {
       final csvString = segments[1].replaceAll('*', '');
       developer.log('📄 CSV string length: ${csvString.length}', name: 'VpnGateApi');
 
-      final rows = const CsvToListConverter(eol: '\n').convert(csvString);
+      if (csvString.contains('Domain forbidden')) {
+        developer.log('⛔️ Catalogue response indicates domain forbidden',
+            name: 'VpnGateApi');
+        return const [];
+      }
+
+      final cleanedCsv = csvString.trim();
+      final rows = const CsvToListConverter(eol: '\n').convert(cleanedCsv);
       developer.log('📋 Parsed ${rows.length} rows from CSV', name: 'VpnGateApi');
 
       if (rows.length <= 1) {
@@ -166,6 +177,10 @@ class VpnGateApi {
           );
         }
         final decoded = const Utf8Decoder().convert(response.bodyBytes);
+        if (decoded.contains('Domain forbidden')) {
+          developer.log('⛔️ Response body reports domain forbidden',
+              name: 'VpnGateApi');
+        }
         developer.log('✅ Successfully decoded response: ${decoded.length} chars', name: 'VpnGateApi');
         return decoded;
       } catch (e, st) {
@@ -176,7 +191,14 @@ class VpnGateApi {
 
     try {
       developer.log('🔗 Trying HTTP endpoint: $_endpoint', name: 'VpnGateApi');
-      return await tryFetch(Uri.parse(_endpoint));
+      final primary = await tryFetch(Uri.parse(_endpoint));
+      if (primary.contains('Domain forbidden')) {
+        developer.log('⚠️ HTTP endpoint blocked, retrying with HTTPS',
+            name: 'VpnGateApi');
+        final fallback = await tryFetch(Uri.parse(_fallbackEndpoint));
+        return fallback;
+      }
+      return primary;
     } on http.ClientException catch (error, stackTrace) {
       developer.log('⚠️ HTTP fetch failed, retrying with HTTPS: $error',
           name: 'VpnGateApi', error: error, stackTrace: stackTrace);

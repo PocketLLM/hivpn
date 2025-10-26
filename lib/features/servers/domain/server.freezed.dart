@@ -8,6 +8,7 @@ mixin _$Server {
   String get id => throw UnimplementedError();
   String get name => throw UnimplementedError();
   String get countryCode => throw UnimplementedError();
+  String? get countryName => throw UnimplementedError();
   String get publicKey => throw UnimplementedError();
   String get endpoint => throw UnimplementedError();
   String get allowedIps => throw UnimplementedError();
@@ -17,6 +18,8 @@ mixin _$Server {
   String? get ip => throw UnimplementedError();
   int? get pingMs => throw UnimplementedError();
   int? get bandwidth => throw UnimplementedError();
+  int? get downloadSpeed => throw UnimplementedError();
+  int? get uploadSpeed => throw UnimplementedError();
   int? get sessions => throw UnimplementedError();
   String? get openVpnConfigDataBase64 => throw UnimplementedError();
   String? get regionName => throw UnimplementedError();
@@ -34,6 +37,7 @@ abstract class $ServerCopyWith<$Res> {
     String id,
     String name,
     String countryCode,
+    String? countryName,
     String publicKey,
     String endpoint,
     String allowedIps,
@@ -43,6 +47,8 @@ abstract class $ServerCopyWith<$Res> {
     String? ip,
     int? pingMs,
     int? bandwidth,
+    int? downloadSpeed,
+    int? uploadSpeed,
     int? sessions,
     String? openVpnConfigDataBase64,
     String? regionName,
@@ -62,6 +68,7 @@ class _$ServerCopyWithImpl<$Res> implements $ServerCopyWith<$Res> {
     Object? id = freezed,
     Object? name = freezed,
     Object? countryCode = freezed,
+    Object? countryName = freezed,
     Object? publicKey = freezed,
     Object? endpoint = freezed,
     Object? allowedIps = freezed,
@@ -71,6 +78,8 @@ class _$ServerCopyWithImpl<$Res> implements $ServerCopyWith<$Res> {
     Object? ip = freezed,
     Object? pingMs = freezed,
     Object? bandwidth = freezed,
+    Object? downloadSpeed = freezed,
+    Object? uploadSpeed = freezed,
     Object? sessions = freezed,
     Object? openVpnConfigDataBase64 = freezed,
     Object? regionName = freezed,
@@ -83,6 +92,9 @@ class _$ServerCopyWithImpl<$Res> implements $ServerCopyWith<$Res> {
       countryCode: countryCode == freezed
           ? _value.countryCode
           : countryCode as String,
+      countryName: countryName == freezed
+          ? _value.countryName
+          : countryName as String?,
       publicKey:
           publicKey == freezed ? _value.publicKey : publicKey as String,
       endpoint: endpoint == freezed ? _value.endpoint : endpoint as String,
@@ -97,6 +109,12 @@ class _$ServerCopyWithImpl<$Res> implements $ServerCopyWith<$Res> {
       pingMs: pingMs == freezed ? _value.pingMs : pingMs as int?,
       bandwidth:
           bandwidth == freezed ? _value.bandwidth : bandwidth as int?,
+      downloadSpeed: downloadSpeed == freezed
+          ? _value.downloadSpeed
+          : downloadSpeed as int?,
+      uploadSpeed: uploadSpeed == freezed
+          ? _value.uploadSpeed
+          : uploadSpeed as int?,
       sessions: sessions == freezed ? _value.sessions : sessions as int?,
       openVpnConfigDataBase64: openVpnConfigDataBase64 == freezed
           ? _value.openVpnConfigDataBase64
@@ -118,6 +136,7 @@ abstract class _$$_ServerCopyWith<$Res> implements $ServerCopyWith<$Res> {
     String id,
     String name,
     String countryCode,
+    String? countryName,
     String publicKey,
     String endpoint,
     String allowedIps,
@@ -127,6 +146,8 @@ abstract class _$$_ServerCopyWith<$Res> implements $ServerCopyWith<$Res> {
     String? ip,
     int? pingMs,
     int? bandwidth,
+    int? downloadSpeed,
+    int? uploadSpeed,
     int? sessions,
     String? openVpnConfigDataBase64,
     String? regionName,
@@ -149,6 +170,7 @@ class __$$_ServerCopyWithImpl<$Res>
     Object? id = freezed,
     Object? name = freezed,
     Object? countryCode = freezed,
+    Object? countryName = freezed,
     Object? publicKey = freezed,
     Object? endpoint = freezed,
     Object? allowedIps = freezed,
@@ -158,6 +180,8 @@ class __$$_ServerCopyWithImpl<$Res>
     Object? ip = freezed,
     Object? pingMs = freezed,
     Object? bandwidth = freezed,
+    Object? downloadSpeed = freezed,
+    Object? uploadSpeed = freezed,
     Object? sessions = freezed,
     Object? openVpnConfigDataBase64 = freezed,
     Object? regionName = freezed,
@@ -170,6 +194,9 @@ class __$$_ServerCopyWithImpl<$Res>
       countryCode: countryCode == freezed
           ? _value.countryCode
           : countryCode as String,
+      countryName: countryName == freezed
+          ? _value.countryName
+          : countryName as String?,
       publicKey:
           publicKey == freezed ? _value.publicKey : publicKey as String,
       endpoint: endpoint == freezed ? _value.endpoint : endpoint as String,
@@ -184,6 +211,12 @@ class __$$_ServerCopyWithImpl<$Res>
       pingMs: pingMs == freezed ? _value.pingMs : pingMs as int?,
       bandwidth:
           bandwidth == freezed ? _value.bandwidth : bandwidth as int?,
+      downloadSpeed: downloadSpeed == freezed
+          ? _value.downloadSpeed
+          : downloadSpeed as int?,
+      uploadSpeed: uploadSpeed == freezed
+          ? _value.uploadSpeed
+          : uploadSpeed as int?,
       sessions: sessions == freezed ? _value.sessions : sessions as int?,
       openVpnConfigDataBase64: openVpnConfigDataBase64 == freezed
           ? _value.openVpnConfigDataBase64
@@ -203,6 +236,7 @@ class _$_Server extends _Server {
     required this.id,
     required this.name,
     required this.countryCode,
+    this.countryName,
     required this.publicKey,
     required this.endpoint,
     required this.allowedIps,
@@ -212,6 +246,8 @@ class _$_Server extends _Server {
     this.ip,
     this.pingMs,
     this.bandwidth,
+    this.downloadSpeed,
+    this.uploadSpeed,
     this.sessions,
     this.openVpnConfigDataBase64,
     this.regionName,
@@ -228,6 +264,8 @@ class _$_Server extends _Server {
   final String name;
   @override
   final String countryCode;
+  @override
+  final String? countryName;
   @override
   final String publicKey;
   @override
@@ -246,6 +284,10 @@ class _$_Server extends _Server {
   final int? pingMs;
   @override
   final int? bandwidth;
+  @override
+  final int? downloadSpeed;
+  @override
+  final int? uploadSpeed;
   @override
   final int? sessions;
   @override
@@ -268,7 +310,7 @@ class _$_Server extends _Server {
 
   @override
   String toString() {
-    return 'Server(id: $id, name: $name, countryCode: $countryCode, publicKey: $publicKey, endpoint: $endpoint, allowedIps: $allowedIps, mtu: $mtu, keepaliveSeconds: $keepaliveSeconds, hostName: $hostName, ip: $ip, pingMs: $pingMs, bandwidth: $bandwidth, sessions: $sessions, openVpnConfigDataBase64: $openVpnConfigDataBase64, regionName: $regionName, cityName: $cityName, score: $score)';
+    return 'Server(id: $id, name: $name, countryCode: $countryCode, countryName: $countryName, publicKey: $publicKey, endpoint: $endpoint, allowedIps: $allowedIps, mtu: $mtu, keepaliveSeconds: $keepaliveSeconds, hostName: $hostName, ip: $ip, pingMs: $pingMs, bandwidth: $bandwidth, downloadSpeed: $downloadSpeed, uploadSpeed: $uploadSpeed, sessions: $sessions, openVpnConfigDataBase64: $openVpnConfigDataBase64, regionName: $regionName, cityName: $cityName, score: $score)';
   }
 
   @override
@@ -278,6 +320,7 @@ class _$_Server extends _Server {
             id == other.id &&
             name == other.name &&
             countryCode == other.countryCode &&
+            countryName == other.countryName &&
             publicKey == other.publicKey &&
             endpoint == other.endpoint &&
             allowedIps == other.allowedIps &&
@@ -287,6 +330,8 @@ class _$_Server extends _Server {
             ip == other.ip &&
             pingMs == other.pingMs &&
             bandwidth == other.bandwidth &&
+            downloadSpeed == other.downloadSpeed &&
+            uploadSpeed == other.uploadSpeed &&
             sessions == other.sessions &&
             openVpnConfigDataBase64 == other.openVpnConfigDataBase64 &&
             regionName == other.regionName &&
@@ -299,6 +344,7 @@ class _$_Server extends _Server {
         id,
         name,
         countryCode,
+        countryName,
         publicKey,
         endpoint,
         allowedIps,
@@ -308,6 +354,8 @@ class _$_Server extends _Server {
         ip,
         pingMs,
         bandwidth,
+        downloadSpeed,
+        uploadSpeed,
         sessions,
         openVpnConfigDataBase64,
         regionName,
@@ -321,6 +369,7 @@ abstract class _Server extends Server {
     required final String id,
     required final String name,
     required final String countryCode,
+    final String? countryName,
     required final String publicKey,
     required final String endpoint,
     required final String allowedIps,
@@ -330,6 +379,8 @@ abstract class _Server extends Server {
     final String? ip,
     final int? pingMs,
     final int? bandwidth,
+    final int? downloadSpeed,
+    final int? uploadSpeed,
     final int? sessions,
     final String? openVpnConfigDataBase64,
     final String? regionName,
