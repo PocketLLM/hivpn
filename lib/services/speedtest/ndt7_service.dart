@@ -361,7 +361,10 @@ void _measurementEntry(_MeasurementRequest request) async {
   final sendPort = request.progressPort;
   WebSocketChannel? channel;
   try {
-    channel = WebSocketChannel.connect(Uri.parse(request.url));
+    channel = WebSocketChannel.connect(
+      Uri.parse(request.url),
+      protocols: const ['net.measurementlab.ndt.v7'],
+    );
     var reportedMetrics = const Ndt7ServerMetrics();
     final stopwatch = Stopwatch()..start();
     final warmupMicros = request.warmupMicros;
@@ -514,7 +517,7 @@ Future<void> _pumpUpload(
 
   while (stopwatch.elapsedMicroseconds < totalMicros) {
     channel.sink.add(chunk);
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await Future<void>.delayed(Duration.zero);
     final elapsed = stopwatch.elapsedMicroseconds;
     final warmup = elapsed < warmupMicros;
     onProgress(
