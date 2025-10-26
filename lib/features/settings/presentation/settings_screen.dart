@@ -334,7 +334,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           : '',
     );
     try {
-      return showDialog<_LimitDialogResult?>(
+      final result = await showDialog<_LimitDialogResult?>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(l10n.settingsUsageLimit),
@@ -383,6 +383,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
         ),
       );
+      return result;
     } finally {
       controller.dispose();
     }
