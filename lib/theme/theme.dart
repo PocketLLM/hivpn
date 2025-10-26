@@ -87,7 +87,7 @@ ThemeData buildHiVpnTheme({String accentSeed = 'lavender'}) {
         textStyle: const TextStyle(fontWeight: FontWeight.w600),
       ),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: colorScheme.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
