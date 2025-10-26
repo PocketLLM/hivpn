@@ -1,7 +1,5 @@
-import 'dart:convert';
-
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../domain/server.dart';
 import 'vpngate_api.dart';
@@ -11,59 +9,125 @@ class ServerRepository {
 
   final VpnGateApi _vpnGateApi;
 
+  static const _cacheBoxName = 'server_cache_box';
+  static const _cacheKey = 'servers_v1';
+
+  Future<Box<dynamic>> _openCacheBox() async {
+    if (Hive.isBoxOpen(_cacheBoxName)) {
+      return Hive.box<dynamic>(_cacheBoxName);
+    }
+    return Hive.openBox<dynamic>(_cacheBoxName);
+  }
+
   Future<List<Server>> loadServers() async {
-    final jsonString = await rootBundle.loadString('assets/servers.json');
-    final data = json.decode(jsonString) as Map<String, dynamic>;
-    final servers = (data['servers'] as List<dynamic>)
-        .map((e) => Server.fromJson(e as Map<String, dynamic>))
-        .toList();
-
+    List<Server> cached = const [];
     try {
-      final remoteServers = await _vpnGateApi.fetchServers();
-      if (remoteServers.isNotEmpty) {
-        final bestByCountry = <String, VpnGateRecord>{};
-        for (final record in remoteServers) {
-          final key = record.countryShort.toLowerCase();
-          final existing = bestByCountry[key];
-          if (existing == null) {
-            bestByCountry[key] = record;
-            continue;
-          }
-          final existingPing = existing.pingMs ?? 9999;
-          final currentPing = record.pingMs ?? 9999;
-          if (currentPing < existingPing) {
-            bestByCountry[key] = record;
-          }
-        }
-
-        return servers
-            .map((server) {
-              final record = bestByCountry[server.countryCode.toLowerCase()];
-              if (record == null) {
-                return server;
+      final box = await _openCacheBox();
+      final raw = box.get(_cacheKey);
+      if (raw is List) {
+        cached = raw
+            .map((item) {
+              if (item is Map) {
+                return Server.fromJson(
+                    Map<String, dynamic>.from(item as Map<dynamic, dynamic>));
               }
-              return server.copyWith(
-                name: record.countryLong.isNotEmpty
-                    ? record.countryLong
-                    : server.name,
-                hostName: record.hostName,
-                ip: record.ip,
-                pingMs: record.pingMs,
-                bandwidth: record.speed,
-                sessions: record.sessions,
-                openVpnConfigDataBase64: record.openVpnConfig,
-                regionName: record.regionName ?? server.regionName,
-                cityName: record.city ?? server.cityName,
-                score: record.score,
-              );
+              return null;
             })
+            .whereType<Server>()
             .toList(growable: false);
       }
     } catch (_) {
-      // Silently ignore remote errors and return the bundled server list.
+      cached = const [];
     }
 
-    return servers;
+    try {
+      final remoteServers = await _vpnGateApi.fetchServers();
+      if (remoteServers.isEmpty) {
+        return cached;
+      }
+
+      remoteServers.sort((a, b) {
+        final pingA = a.pingMs ?? 9999;
+        final pingB = b.pingMs ?? 9999;
+        return pingA.compareTo(pingB);
+      });
+
+      final mapped = <Server>[];
+      final seenIds = <String>{};
+
+      for (var i = 0; i < remoteServers.length; i++) {
+        final record = remoteServers[i];
+        final server = _mapRecord(record, i);
+        if (seenIds.add(server.id)) {
+          mapped.add(server);
+        }
+      }
+
+      try {
+        final box = await _openCacheBox();
+        await box.put(
+          _cacheKey,
+          mapped.map((server) => server.toJson()).toList(growable: false),
+        );
+      } catch (_) {
+        // Ignore cache write errors.
+      }
+
+      return mapped;
+    } catch (_) {
+      return cached;
+    }
+  }
+
+  Server _mapRecord(VpnGateRecord record, int index) {
+    String _ensureId() {
+      final base = record.hostName.isNotEmpty ? record.hostName : record.ip;
+      final sanitized = base.replaceAll(RegExp(r'[^a-zA-Z0-9]+'), '-');
+      if (sanitized.isEmpty) {
+        return 'ovpn-$index';
+      }
+      return 'ovpn-${sanitized.toLowerCase()}-$index';
+    }
+
+    final endpointHost = record.ip.isNotEmpty ? record.ip : record.hostName;
+    final endpoint = endpointHost.isNotEmpty ? '$endpointHost:443' : '';
+    final baseName = record.countryLong.isNotEmpty
+        ? '${record.countryLong} • ${record.hostName.isNotEmpty ? record.hostName : endpointHost}'
+        : (record.hostName.isNotEmpty ? record.hostName : endpointHost);
+    final name = baseName.trim().isNotEmpty ? baseName.trim() : 'VPN ${index + 1}';
+
+    String countryCode = record.countryShort.trim();
+    if (countryCode.isEmpty) {
+      final lettersOnly = record.countryLong.replaceAll(RegExp(r'[^A-Za-z]'), '');
+      if (lettersOnly.length >= 2) {
+        countryCode = lettersOnly.substring(0, 2).toUpperCase();
+      } else {
+        countryCode = 'UN';
+      }
+    } else {
+      countryCode = countryCode.toUpperCase();
+    }
+
+    return Server(
+      id: _ensureId(),
+      name: name,
+      countryCode: countryCode,
+      publicKey: 'OPENVPN_PLACEHOLDER',
+      endpoint: endpoint,
+      allowedIps: '0.0.0.0/0, ::/0',
+      mtu: null,
+      keepaliveSeconds: 25,
+      hostName: record.hostName.isNotEmpty ? record.hostName : null,
+      ip: record.ip.isNotEmpty ? record.ip : null,
+      pingMs: record.pingMs,
+      bandwidth: record.speed,
+      sessions: record.sessions,
+      openVpnConfigDataBase64: record.openVpnConfig,
+      regionName:
+          (record.regionName != null && record.regionName!.isNotEmpty) ? record.regionName : null,
+      cityName: (record.city != null && record.city!.isNotEmpty) ? record.city : null,
+      score: record.score,
+    );
   }
 }
 

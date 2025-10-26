@@ -15,13 +15,12 @@ lib/
     home/             # Home screen and primary UX
     history/          # Connection history timeline and metrics
     onboarding/       # Spotlight tour (tutorial_coach_mark)
-    servers/          # Server models and asset repository
+    servers/          # Server models and VPN Gate repository
     settings/         # Protocol, auto-connect, split tunneling controls
     session/          # Session domain, countdown, controller
     speedtest/        # Speed test controller, UI, and endpoints loader
   widgets/            # Shared UI components
 assets/
-  servers.json        # Static server catalogue
   reference/          # Visual reference material from design
   speedtest_endpoints.json # Download/upload/ping configuration
 ```
@@ -66,7 +65,7 @@ iOS is deferred for this MVP. The Flutter layer relies on an abstract `VpnPort` 
 
 ## Rewarded session flow
 
-1. On first launch the app loads `assets/servers.json` to populate the server catalogue.
+1. On first launch the app fetches the latest VPN Gate catalogue, caches it locally, and hydrates the server list from cache on subsequent runs.
 2. Users tap **Connect**, triggering a rewarded ad via `RewardedAdService`. A successful reward unlocks a 60-minute session.
 3. The session controller stores only non-sensitive session metadata (server ID/name, country flag, monotonic start/duration) in `SharedPreferences`. The WireGuard private key stays exclusively in the Android keystore via `flutter_secure_storage`.
 4. A persistent countdown updates from monotonic wall-clock math; if the app is backgrounded or relaunched, the countdown restores from persisted state.
