@@ -7,6 +7,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../referral/domain/referral_controller.dart';
 import '../../referral/domain/referral_state.dart';
 import '../../usage/data_usage_controller.dart';
+import '../../usage/data_usage_state.dart';
 import '../../usage/presentation/data_usage_card.dart';
 import '../domain/preferences_controller.dart';
 import '../domain/preferences_state.dart';
@@ -36,46 +37,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final referral = ref.watch(referralControllerProvider);
     final usage = ref.watch(dataUsageControllerProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.settingsTitle),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 160),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l10n.settingsConnection, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
-          SwitchListTile.adaptive(
-            value: preferences.autoServerSwitch,
-            title: Text(l10n.settingsAutoSwitch),
-            subtitle: Text(l10n.settingsAutoSwitchSubtitle),
-            onChanged: (value) {
-              unawaited(() async {
-                await ref.read(hapticsServiceProvider).selection();
-                await ref
-                    .read(preferencesControllerProvider.notifier)
-                    .toggleAutoServerSwitch(value);
-              }());
-            },
-          ),
-          SwitchListTile.adaptive(
-            value: preferences.hapticsEnabled,
-            title: Text(l10n.settingsHaptics),
-            subtitle: Text(l10n.settingsHapticsSubtitle),
-            onChanged: (value) {
-              unawaited(() async {
-                await ref.read(hapticsServiceProvider).selection();
-                await ref
-                    .read(preferencesControllerProvider.notifier)
-                    .toggleHaptics(value);
-              }());
-            },
+          Text(
+            l10n.settingsTitle,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 24),
-          DataUsageCard(
-            onSetLimit: () => _handleLimitTap(context, usage.monthlyLimitBytes),
-            onReset: () => _handleResetUsage(),
-          ),
+          _buildConnectionSection(context, preferences),
+          const SizedBox(height: 24),
+          _buildUsageSection(context, usage),
           const SizedBox(height: 24),
           _buildBackupSection(context),
           const SizedBox(height: 24),
@@ -87,123 +61,363 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildBackupSection(BuildContext context) {
+  Widget _buildConnectionSection(BuildContext context, PreferencesState preferences) {
     final l10n = context.l10n;
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.settingsBackup,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                TextButton(
-                  onPressed: () => unawaited(_createBackup(context)),
-                  child: Text(l10n.settingsCreateBackup),
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.settingsConnection,
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 12),
+        _buildSectionCard(
+          context,
+          child: Column(
+            children: [
+              _buildSwitchTile(
+                context,
+                value: preferences.autoServerSwitch,
+                title: l10n.settingsAutoSwitch,
+                subtitle: l10n.settingsAutoSwitchSubtitle,
+                icon: Icons.auto_mode,
+                onChanged: (value) {
+                  unawaited(() async {
+                    await ref.read(hapticsServiceProvider).selection();
+                    await ref
+                        .read(preferencesControllerProvider.notifier)
+                        .toggleAutoServerSwitch(value);
+                  }());
+                },
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Divider(
+                  color: theme.colorScheme.outline.withOpacity(0.12),
+                  height: 1,
+                  thickness: 1,
                 ),
-                const SizedBox(width: 12),
-                TextButton(
-                  onPressed: () => unawaited(_restoreBackup(context)),
-                  child: Text(l10n.settingsRestore),
-                ),
-              ],
+              ),
+              _buildSwitchTile(
+                context,
+                value: preferences.hapticsEnabled,
+                title: l10n.settingsHaptics,
+                subtitle: l10n.settingsHapticsSubtitle,
+                icon: Icons.vibration,
+                onChanged: (value) {
+                  unawaited(() async {
+                    await ref.read(hapticsServiceProvider).selection();
+                    await ref
+                        .read(preferencesControllerProvider.notifier)
+                        .toggleHaptics(value);
+                  }());
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUsageSection(BuildContext context, DataUsageState usage) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.settingsUsage,
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 12),
+        _buildSectionCard(
+          context,
+          padding: const EdgeInsets.all(4),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: DataUsageCard(
+              onSetLimit: () => _handleLimitTap(context, usage.monthlyLimitBytes),
+              onReset: () => _handleResetUsage(),
             ),
-          ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionCard(BuildContext context,
+      {required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(24)}) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(0.05),
+            blurRadius: 30,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildSwitchTile(
+    BuildContext context, {
+    required bool value,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final theme = Theme.of(context);
+    return SwitchListTile.adaptive(
+      value: value,
+      onChanged: onChanged,
+      activeColor: theme.colorScheme.primary,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      title: Text(
+        title,
+        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurface.withOpacity(0.65),
         ),
       ),
+      secondary: CircleAvatar(
+        radius: 22,
+        backgroundColor: theme.colorScheme.primary.withOpacity(0.12),
+        foregroundColor: theme.colorScheme.primary,
+        child: Icon(icon),
+      ),
+    );
+  }
+
+  Widget _buildBackupSection(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.settingsBackup,
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 12),
+        _buildSectionCard(
+          context,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: theme.colorScheme.primary.withOpacity(0.12),
+                    foregroundColor: theme.colorScheme.primary,
+                    child: const Icon(Icons.cloud_sync_outlined),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      '${l10n.settingsCreateBackup} / ${l10n.settingsRestore}',
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  FilledButton.tonal(
+                    onPressed: () => unawaited(_createBackup(context)),
+                    child: Text(l10n.settingsCreateBackup),
+                  ),
+                  OutlinedButton(
+                    onPressed: () => unawaited(_restoreBackup(context)),
+                    child: Text(l10n.settingsRestore),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildReferralSection(BuildContext context, ReferralState referral) {
     final l10n = context.l10n;
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.settingsReferral,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            Text(l10n.settingsReferralSubtitle,
-                style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: SelectableText(
-                    referral.referralCode,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.settingsReferral,
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 12),
+        _buildSectionCard(
+          context,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: theme.colorScheme.secondary.withOpacity(0.12),
+                    foregroundColor: theme.colorScheme.secondary,
+                    child: const Icon(Icons.card_giftcard_outlined),
                   ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      l10n.settingsReferralSubtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: () => _showAddReferralDialog(context),
-                  child: Text(l10n.settingsAddReferral),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        referral.referralCode,
+                        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton.tonal(
+                      onPressed: () => _showAddReferralDialog(context),
+                      child: Text(l10n.settingsAddReferral),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('${l10n.settingsRewards}: ${referral.rewardsEarned}',
+                  style: theme.textTheme.bodyMedium),
+              if (referral.referredUsers.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: referral.referredUsers
+                      .map(
+                        (code) => Chip(
+                          backgroundColor: theme.colorScheme.secondary.withOpacity(0.12),
+                          label: Text(
+                            code,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.secondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
-            Text('${l10n.settingsRewards}: ${referral.rewardsEarned}'),
-            if (referral.referredUsers.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: referral.referredUsers
-                    .map((code) => Chip(label: Text(code)))
-                    .toList(),
-              ),
             ],
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
   Widget _buildLanguageSection(BuildContext context, PreferencesState preferences) {
     final l10n = context.l10n;
     final locales = AppLocalizations.supportedLocales;
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.settingsLanguage,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            Text(l10n.settingsLanguageSubtitle,
-                style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 12),
-            DropdownButton<String?>(
-              value: preferences.localeCode,
-              items: [
-                DropdownMenuItem<String?>
-                    (value: null, child: Text(l10n.settingsLanguageSystem)),
-                ...locales.map((locale) => DropdownMenuItem<String?>(
-                      value: locale.languageCode,
-                      child: Text(locale.languageCode.toUpperCase()),
-                    )),
-              ],
-              onChanged: (value) {
-                unawaited(() async {
-                  await ref.read(hapticsServiceProvider).selection();
-                  await ref
-                      .read(preferencesControllerProvider.notifier)
-                      .setLocale(value);
-                }());
-              },
-            ),
-          ],
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.settingsLanguage,
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
-      ),
+        const SizedBox(height: 12),
+        _buildSectionCard(
+          context,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: theme.colorScheme.primary.withOpacity(0.12),
+                    foregroundColor: theme.colorScheme.primary,
+                    child: const Icon(Icons.language),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      l10n.settingsLanguageSubtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String?>(
+                value: preferences.localeCode,
+                isExpanded: true,
+                items: [
+                  DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text(l10n.settingsLanguageSystem),
+                  ),
+                  ...locales.map((locale) => DropdownMenuItem<String?>(
+                        value: locale.languageCode,
+                        child: Text(locale.languageCode.toUpperCase()),
+                      )),
+                ],
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: theme.colorScheme.primary.withOpacity(0.05),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                onChanged: (value) {
+                  unawaited(() async {
+                    await ref.read(hapticsServiceProvider).selection();
+                    await ref
+                        .read(preferencesControllerProvider.notifier)
+                        .setLocale(value);
+                  }());
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

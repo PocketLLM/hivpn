@@ -14,82 +14,108 @@ class SpeedTestScreen extends ConsumerWidget {
     final state = ref.watch(speedTestControllerProvider);
     final controller = ref.read(speedTestControllerProvider.notifier);
     final theme = Theme.of(context);
-    final surface = theme.pastelCard(theme.colorScheme.primaryContainer, opacity: 0.12);
-    final accentSurface = theme.pastelCard(theme.colorScheme.secondary, opacity: 0.16);
+    final accentSurface = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        theme.colorScheme.primary.withOpacity(0.18),
+        theme.colorScheme.secondary.withOpacity(0.12),
+        Colors.white,
+      ],
+    );
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            'Speed Test',
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 24),
-          SpeedGauge(
-            value: state.gaugeValue,
-            label: state.status == SpeedTestStatus.running ? 'Testing…' : 'Normal',
-            speed: state.downloadMbps,
-            status: state.status,
-          ),
-          const SizedBox(height: 24),
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            alignment: WrapAlignment.center,
-            children: [
-              _MetricCard(
-                title: 'Download',
-                value: state.downloadMbps > 0 ? '${state.downloadMbps.toStringAsFixed(1)} Mbps' : '--',
-                icon: Icons.download_rounded,
-                background: accentSurface,
-              ),
-              _MetricCard(
-                title: 'Upload',
-                value: state.uploadSeries.isEmpty
-                    ? 'Pending'
-                    : '${state.uploadMbps.toStringAsFixed(1)} Mbps',
-                icon: Icons.upload_rounded,
-                background: surface,
-              ),
-              _MetricCard(
-                title: 'Ping',
-                value: state.ping != null
-                    ? '${state.ping!.inMilliseconds} ms'
-                    : (state.status == SpeedTestStatus.idle ? '--' : 'Measuring'),
-                icon: Icons.podcasts,
-                background: surface,
-              ),
-              _MetricCard(
-                title: 'IP',
-                value: state.ip ?? 'Detecting…',
-                icon: Icons.language,
-                background: surface,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          if (state.errorMessage != null)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: HiVpnColors.error.withOpacity(0.16),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                state.errorMessage!,
-                style: theme.textTheme.bodyMedium?.copyWith(color: HiVpnColors.error),
-                textAlign: TextAlign.center,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            theme.colorScheme.primary.withOpacity(0.08),
+            Colors.white,
+          ],
+        ),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'Speed Test',
+              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              state.status == SpeedTestStatus.running
+                  ? 'Benchmarking your secure tunnel…'
+                  : 'Measure download, upload, and latency instantly.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.65),
               ),
             ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: state.status == SpeedTestStatus.running ? null : () => controller.run(),
-            icon: const Icon(Icons.refresh_rounded),
-            label: Text(state.status == SpeedTestStatus.running ? 'Running…' : 'Try Again'),
-          ),
-        ],
+            const SizedBox(height: 28),
+            SpeedGauge(
+              value: state.gaugeValue,
+              label: state.status == SpeedTestStatus.running ? 'Testing…' : 'Normal',
+              speed: state.downloadMbps,
+              status: state.status,
+            ),
+            const SizedBox(height: 28),
+            Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              alignment: WrapAlignment.center,
+              children: [
+                _MetricCard(
+                  title: 'Download',
+                  value: state.downloadMbps > 0 ? '${state.downloadMbps.toStringAsFixed(1)} Mbps' : '--',
+                  icon: Icons.download_rounded,
+                  gradient: accentSurface,
+                ),
+                _MetricCard(
+                  title: 'Upload',
+                  value: state.uploadSeries.isEmpty
+                      ? 'Pending'
+                      : '${state.uploadMbps.toStringAsFixed(1)} Mbps',
+                  icon: Icons.upload_rounded,
+                ),
+                _MetricCard(
+                  title: 'Ping',
+                  value: state.ping != null
+                      ? '${state.ping!.inMilliseconds} ms'
+                      : (state.status == SpeedTestStatus.idle ? '--' : 'Measuring'),
+                  icon: Icons.podcasts,
+                ),
+                _MetricCard(
+                  title: 'IP',
+                  value: state.ip ?? 'Detecting…',
+                  icon: Icons.language,
+                ),
+              ],
+            ),
+            const SizedBox(height: 28),
+            if (state.errorMessage != null)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: HiVpnColors.error.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  state.errorMessage!,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: HiVpnColors.error),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: state.status == SpeedTestStatus.running ? null : () => controller.run(),
+              icon: const Icon(Icons.refresh_rounded),
+              label: Text(state.status == SpeedTestStatus.running ? 'Running…' : 'Try Again'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -100,34 +126,51 @@ class _MetricCard extends StatelessWidget {
     required this.title,
     required this.value,
     required this.icon,
-    required this.background,
+    this.gradient,
   });
 
   final String title;
   final String value;
   final IconData icon;
-  final Color background;
+  final Gradient? gradient;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      width: 140,
-      padding: const EdgeInsets.all(16),
+      width: 150,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white10),
+        gradient: gradient,
+        color: gradient == null ? theme.colorScheme.surface : null,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(0.08),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: theme.colorScheme.onSurface.withOpacity(0.7)),
-          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: theme.colorScheme.primary),
+          ),
+          const SizedBox(height: 14),
           Text(
             title,
-            style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.7)),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.65),
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -170,8 +213,8 @@ class SpeedGauge extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  HiVpnColors.primary.withOpacity(0.35),
-                  Colors.transparent,
+                  theme.colorScheme.primary.withOpacity(0.28),
+                  Colors.white.withOpacity(0.1),
                 ],
               ),
             ),
