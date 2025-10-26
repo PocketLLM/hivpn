@@ -105,6 +105,27 @@ class AppLocalizations {
       'adNotReady': 'Ad not ready. Please try again.',
       'adFailedToShow': 'Ad failed to show. Please try again.',
       'adMustComplete': 'You must complete the ad to connect.',
+      'speedTestCardTitle': 'Speed test',
+      'speedTestCardStart': 'Start test',
+      'speedTestCardRetest': 'Run again',
+      'speedTestCardTesting': 'Testing…',
+      'speedTestCardLocating': 'Locating nearest site…',
+      'speedTestCardDownloadWarmup': 'Warming up download…',
+      'speedTestCardDownloadMeasure': 'Measuring download throughput…',
+      'speedTestCardUploadWarmup': 'Warming up upload…',
+      'speedTestCardUploadMeasure': 'Measuring upload throughput…',
+      'speedTestCardComplete': 'Test complete',
+      'speedTestCardError': 'Test failed',
+      'speedTestCardDownloadLabel': 'Download',
+      'speedTestCardUploadLabel': 'Upload',
+      'speedTestCardLatencyLabel': 'Latency',
+      'speedTestCardLossLabel': 'Loss',
+      'speedTestCardServerLabel': 'Server',
+      'speedTestErrorTimeout': 'Timed out while measuring. Please retry.',
+      'speedTestErrorToken': 'Token expired. Please try the test again.',
+      'speedTestErrorTls': 'Secure connection failed. Check your network.',
+      'speedTestErrorNoResult': 'No measurement data returned.',
+      'speedTestErrorGeneric': 'We could not finish the test. Please retry.',
       'navHome': 'Home',
       'navSpeedTest': 'Speed Test',
       'navHistory': 'History',
@@ -192,6 +213,27 @@ class AppLocalizations {
       'adNotReady': 'El anuncio no está listo. Inténtalo de nuevo.',
       'adFailedToShow': 'El anuncio no se pudo mostrar. Inténtalo de nuevo.',
       'adMustComplete': 'Debes completar el anuncio para conectarte.',
+      'speedTestCardTitle': 'Prueba de velocidad',
+      'speedTestCardStart': 'Iniciar prueba',
+      'speedTestCardRetest': 'Probar de nuevo',
+      'speedTestCardTesting': 'Probando…',
+      'speedTestCardLocating': 'Buscando el sitio más cercano…',
+      'speedTestCardDownloadWarmup': 'Preparando descarga…',
+      'speedTestCardDownloadMeasure': 'Midiendo descarga…',
+      'speedTestCardUploadWarmup': 'Preparando subida…',
+      'speedTestCardUploadMeasure': 'Midiendo subida…',
+      'speedTestCardComplete': 'Prueba completada',
+      'speedTestCardError': 'La prueba falló',
+      'speedTestCardDownloadLabel': 'Descarga',
+      'speedTestCardUploadLabel': 'Subida',
+      'speedTestCardLatencyLabel': 'Latencia',
+      'speedTestCardLossLabel': 'Pérdida',
+      'speedTestCardServerLabel': 'Servidor',
+      'speedTestErrorTimeout': 'Se agotó el tiempo de la medición. Intenta de nuevo.',
+      'speedTestErrorToken': 'El token caducó. Vuelve a intentarlo.',
+      'speedTestErrorTls': 'Falló la conexión segura. Revisa tu red.',
+      'speedTestErrorNoResult': 'La prueba no devolvió datos.',
+      'speedTestErrorGeneric': 'No pudimos finalizar la prueba. Intenta otra vez.',
       'navHome': 'Inicio',
       'navSpeedTest': 'Prueba de velocidad',
       'navHistory': 'Historial',
@@ -279,6 +321,27 @@ class AppLocalizations {
       'adNotReady': 'विज्ञापन तैयार नहीं है। कृपया पुनः प्रयास करें।',
       'adFailedToShow': 'विज्ञापन नहीं दिख सका। कृपया पुनः प्रयास करें।',
       'adMustComplete': 'कनेक्ट करने के लिए आपको विज्ञापन पूरा करना होगा।',
+      'speedTestCardTitle': 'Speed test',
+      'speedTestCardStart': 'Start test',
+      'speedTestCardRetest': 'Run again',
+      'speedTestCardTesting': 'Testing…',
+      'speedTestCardLocating': 'Locating nearest site…',
+      'speedTestCardDownloadWarmup': 'Warming up download…',
+      'speedTestCardDownloadMeasure': 'Measuring download throughput…',
+      'speedTestCardUploadWarmup': 'Warming up upload…',
+      'speedTestCardUploadMeasure': 'Measuring upload throughput…',
+      'speedTestCardComplete': 'Test complete',
+      'speedTestCardError': 'Test failed',
+      'speedTestCardDownloadLabel': 'Download',
+      'speedTestCardUploadLabel': 'Upload',
+      'speedTestCardLatencyLabel': 'Latency',
+      'speedTestCardLossLabel': 'Loss',
+      'speedTestCardServerLabel': 'Server',
+      'speedTestErrorTimeout': 'Timed out while measuring. Please retry.',
+      'speedTestErrorToken': 'Token expired. Please try the test again.',
+      'speedTestErrorTls': 'Secure connection failed. Check your network.',
+      'speedTestErrorNoResult': 'No measurement data returned.',
+      'speedTestErrorGeneric': 'We could not finish the test. Please retry.',
       'navHome': 'होम',
       'navSpeedTest': 'स्पीड टेस्ट',
       'navHistory': 'इतिहास',
@@ -371,6 +434,34 @@ class AppLocalizations {
   String get navSpeedTest => _value('navSpeedTest');
   String get navHistory => _value('navHistory');
   String get navSettings => _value('navSettings');
+  String get speedTestCardTitle => _value('speedTestCardTitle');
+  String get speedTestCardStart => _value('speedTestCardStart');
+  String get speedTestCardRetest => _value('speedTestCardRetest');
+  String get speedTestCardTesting => _value('speedTestCardTesting');
+  String get speedTestCardLocating => _value('speedTestCardLocating');
+  String get speedTestCardDownloadWarmup =>
+      _value('speedTestCardDownloadWarmup');
+  String get speedTestCardDownloadMeasure =>
+      _value('speedTestCardDownloadMeasure');
+  String get speedTestCardUploadWarmup =>
+      _value('speedTestCardUploadWarmup');
+  String get speedTestCardUploadMeasure =>
+      _value('speedTestCardUploadMeasure');
+  String get speedTestCardComplete => _value('speedTestCardComplete');
+  String get speedTestCardError => _value('speedTestCardError');
+  String get speedTestCardDownloadLabel =>
+      _value('speedTestCardDownloadLabel');
+  String get speedTestCardUploadLabel =>
+      _value('speedTestCardUploadLabel');
+  String get speedTestCardLatencyLabel =>
+      _value('speedTestCardLatencyLabel');
+  String get speedTestCardLossLabel => _value('speedTestCardLossLabel');
+  String get speedTestCardServerLabel => _value('speedTestCardServerLabel');
+  String get speedTestErrorTimeout => _value('speedTestErrorTimeout');
+  String get speedTestErrorToken => _value('speedTestErrorToken');
+  String get speedTestErrorTls => _value('speedTestErrorTls');
+  String get speedTestErrorNoResult => _value('speedTestErrorNoResult');
+  String get speedTestErrorGeneric => _value('speedTestErrorGeneric');
 
   String connectionQualityLabel(ConnectionQuality quality) {
     switch (quality) {

@@ -26,6 +26,8 @@ dependencies:
   google_fonts: ^6.1.0
   equatable: ^2.0.7
   characters: ^1.4.0
+  http: ^1.2.1
+  web_socket_channel: ^2.4.0
 
 dev_dependencies:
   flutter_test:
