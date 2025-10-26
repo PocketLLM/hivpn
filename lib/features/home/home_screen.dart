@@ -31,6 +31,7 @@ import '../usage/data_usage_state.dart';
 import '../settings/domain/preferences_controller.dart';
 import '../settings/presentation/privacy_policy_consent_page.dart';
 import '../settings/presentation/settings_screen.dart';
+import '../network/data/ip_info_repository.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -297,7 +298,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ? usageState.monthlyLimitBytes! / (1024 * 1024 * 1024)
         : null;
     final usageText = l10n.usageSummaryText(usedGb, limitGb);
-    final ip = speedState.ip ?? '--';
+    final ipInfoAsync = ref.watch(ipInfoProvider);
+    final ipInfo = ipInfoAsync.asData?.value;
+    final ipLoading = ipInfoAsync.isLoading;
+    final currentIp = ipLoading
+        ? '...'
+        : (ipInfo != null && ipInfo.ip.isNotEmpty
+            ? ipInfo.ip
+            : (speedState.ip?.isNotEmpty ?? false ? speedState.ip! : '--'));
+    final locationText = ipLoading
+        ? '...'
+        : (ipInfo != null && ipInfo.formattedLocation.isNotEmpty
+            ? ipInfo.formattedLocation
+            : '--');
+    final ispText = ipLoading
+        ? '...'
+        : (ipInfo != null && ipInfo.isp.isNotEmpty ? ipInfo.isp : '--');
+    final timezoneText = ipLoading
+        ? '...'
+        : (ipInfo != null && ipInfo.timezone.isNotEmpty ? ipInfo.timezone : '--');
     final downloadText = speedState.downloadMbps > 0
         ? '${speedState.downloadMbps.toStringAsFixed(1)} Mbps'
         : '--';
@@ -525,7 +544,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const SizedBox(height: 12),
                 _InfoRow(label: l10n.settingsUsage, value: usageText),
                 const SizedBox(height: 12),
-                _InfoRow(label: l10n.currentIp, value: ip),
+                _InfoRow(label: l10n.currentIp, value: currentIp),
+                const SizedBox(height: 12),
+                _InfoRow(label: l10n.networkLocation, value: locationText),
+                const SizedBox(height: 12),
+                _InfoRow(label: l10n.networkIsp, value: ispText),
+                const SizedBox(height: 12),
+                _InfoRow(label: l10n.networkTimezone, value: timezoneText),
                 const SizedBox(height: 12),
                 _InfoRow(label: l10n.sessionRemaining, value: countdown),
                 const SizedBox(height: 12),

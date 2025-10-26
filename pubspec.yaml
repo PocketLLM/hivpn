@@ -29,6 +29,7 @@ dependencies:
   http: ^1.2.1
   web_socket_channel: ^2.4.0
   csv: ^5.0.2
+  flutter_speed_test_plus: ^1.0.10
 
 dev_dependencies:
   flutter_test:
@@ -44,7 +45,7 @@ flutter:
   generate: true
   
   assets:
-    - assets/servers.json
     - assets/reference/
     - assets/speedtest_endpoints.json
+    - assets/servers.json
     - assets/CountryFlags/

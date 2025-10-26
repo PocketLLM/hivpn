@@ -33,6 +33,9 @@ class AppLocalizations {
       'failedToLoadServers': 'Failed to load servers',
       'termsPrivacy': 'Terms & Privacy',
       'currentIp': 'Current IP',
+      'networkLocation': 'Location',
+      'networkIsp': 'Internet provider',
+      'networkTimezone': 'Timezone',
       'session': 'Session',
       'runSpeedTest': 'Run Speed Test to benchmark your tunnel latency.',
       'legalTitle': 'Legal',
@@ -263,6 +266,9 @@ class AppLocalizations {
       'failedToLoadServers': 'No se pudieron cargar los servidores',
       'termsPrivacy': 'Términos y privacidad',
       'currentIp': 'IP actual',
+      'networkLocation': 'Ubicación',
+      'networkIsp': 'Proveedor de internet',
+      'networkTimezone': 'Zona horaria',
       'session': 'Sesión',
       'runSpeedTest': 'Ejecuta la prueba de velocidad para medir el túnel.',
       'legalTitle': 'Legal',
@@ -492,6 +498,9 @@ class AppLocalizations {
       'failedToLoadServers': 'सर्वर लोड नहीं हो सके',
       'termsPrivacy': 'नियम व गोपनीयता',
       'currentIp': 'वर्तमान IP',
+      'networkLocation': 'स्थान',
+      'networkIsp': 'इंटरनेट प्रदाता',
+      'networkTimezone': 'समय क्षेत्र',
       'session': 'सत्र',
       'runSpeedTest': 'टनल विलंबता मापने के लिए स्पीड टेस्ट चलाएँ।',
       'legalTitle': 'कानूनी',
@@ -731,6 +740,9 @@ class AppLocalizations {
   String get failedToLoadServers => _value('failedToLoadServers');
   String get termsPrivacy => _value('termsPrivacy');
   String get currentIp => _value('currentIp');
+  String get networkLocation => _value('networkLocation');
+  String get networkIsp => _value('networkIsp');
+  String get networkTimezone => _value('networkTimezone');
   String get sessionLabel => _value('session');
   String get runSpeedTest => _value('runSpeedTest');
   String get legalTitle => _value('legalTitle');
