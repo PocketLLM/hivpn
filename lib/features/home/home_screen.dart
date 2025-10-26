@@ -28,6 +28,8 @@ import '../speedtest/domain/speedtest_controller.dart';
 import '../speedtest/presentation/speedtest_screen.dart';
 import '../usage/data_usage_controller.dart';
 import '../usage/data_usage_state.dart';
+import '../settings/domain/preferences_controller.dart';
+import '../settings/presentation/privacy_policy_dialog.dart';
 import '../settings/presentation/settings_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -60,10 +62,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _didSchedulePostFrameCallback = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _maybeShowSpotlight();
-      ref
-          .read(sessionControllerProvider.notifier)
-          .autoConnectIfEnabled(context: context);
+      unawaited(_handleAppLaunchFlow());
     });
   }
 
@@ -71,6 +70,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void dispose() {
     _spotlightController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleAppLaunchFlow() async {
+    final accepted = await _ensurePrivacyPolicyAccepted();
+    if (!mounted || !accepted) {
+      return;
+    }
+    await _maybeShowSpotlight();
+    if (!mounted) {
+      return;
+    }
+    unawaited(
+      ref.read(sessionControllerProvider.notifier).autoConnectIfEnabled(
+            context: context,
+          ),
+    );
+  }
+
+  Future<bool> _ensurePrivacyPolicyAccepted() async {
+    final notifier = ref.read(preferencesControllerProvider.notifier);
+    await notifier.ready;
+    final preferences = ref.read(preferencesControllerProvider);
+    if (preferences.privacyPolicyAccepted) {
+      return true;
+    }
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => const PrivacyPolicyDialog(),
+    );
+    if (accepted == true) {
+      await notifier.setPrivacyPolicyAccepted(true);
+      return true;
+    }
+    return false;
   }
 
   Future<void> _maybeShowSpotlight() async {
