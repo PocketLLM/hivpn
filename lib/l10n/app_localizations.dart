@@ -105,6 +105,27 @@ class AppLocalizations {
       'adNotReady': 'Ad not ready. Please try again.',
       'adFailedToShow': 'Ad failed to show. Please try again.',
       'adMustComplete': 'You must complete the ad to connect.',
+      'speedTestCardTitle': 'Speed test',
+      'speedTestCardStart': 'Start test',
+      'speedTestCardRetest': 'Run again',
+      'speedTestCardTesting': 'Testing…',
+      'speedTestCardLocating': 'Locating nearest site…',
+      'speedTestCardDownloadWarmup': 'Warming up download…',
+      'speedTestCardDownloadMeasure': 'Measuring download throughput…',
+      'speedTestCardUploadWarmup': 'Warming up upload…',
+      'speedTestCardUploadMeasure': 'Measuring upload throughput…',
+      'speedTestCardComplete': 'Test complete',
+      'speedTestCardError': 'Test failed',
+      'speedTestCardDownloadLabel': 'Download',
+      'speedTestCardUploadLabel': 'Upload',
+      'speedTestCardLatencyLabel': 'Latency',
+      'speedTestCardLossLabel': 'Loss',
+      'speedTestCardServerLabel': 'Server',
+      'speedTestErrorTimeout': 'Timed out while measuring. Please retry.',
+      'speedTestErrorToken': 'Token expired. Please try the test again.',
+      'speedTestErrorTls': 'Secure connection failed. Check your network.',
+      'speedTestErrorNoResult': 'No measurement data returned.',
+      'speedTestErrorGeneric': 'We could not finish the test. Please retry.',
       'navHome': 'Home',
       'navSpeedTest': 'Speed Test',
       'navHistory': 'History',
@@ -313,6 +334,27 @@ class AppLocalizations {
       'adNotReady': 'El anuncio no está listo. Inténtalo de nuevo.',
       'adFailedToShow': 'El anuncio no se pudo mostrar. Inténtalo de nuevo.',
       'adMustComplete': 'Debes completar el anuncio para conectarte.',
+      'speedTestCardTitle': 'Prueba de velocidad',
+      'speedTestCardStart': 'Iniciar prueba',
+      'speedTestCardRetest': 'Probar de nuevo',
+      'speedTestCardTesting': 'Probando…',
+      'speedTestCardLocating': 'Buscando el sitio más cercano…',
+      'speedTestCardDownloadWarmup': 'Preparando descarga…',
+      'speedTestCardDownloadMeasure': 'Midiendo descarga…',
+      'speedTestCardUploadWarmup': 'Preparando subida…',
+      'speedTestCardUploadMeasure': 'Midiendo subida…',
+      'speedTestCardComplete': 'Prueba completada',
+      'speedTestCardError': 'La prueba falló',
+      'speedTestCardDownloadLabel': 'Descarga',
+      'speedTestCardUploadLabel': 'Subida',
+      'speedTestCardLatencyLabel': 'Latencia',
+      'speedTestCardLossLabel': 'Pérdida',
+      'speedTestCardServerLabel': 'Servidor',
+      'speedTestErrorTimeout': 'Se agotó el tiempo de la medición. Intenta de nuevo.',
+      'speedTestErrorToken': 'El token caducó. Vuelve a intentarlo.',
+      'speedTestErrorTls': 'Falló la conexión segura. Revisa tu red.',
+      'speedTestErrorNoResult': 'La prueba no devolvió datos.',
+      'speedTestErrorGeneric': 'No pudimos finalizar la prueba. Intenta otra vez.',
       'navHome': 'Inicio',
       'navSpeedTest': 'Prueba de velocidad',
       'navHistory': 'Historial',
@@ -521,6 +563,27 @@ class AppLocalizations {
       'adNotReady': 'विज्ञापन तैयार नहीं है। कृपया पुनः प्रयास करें।',
       'adFailedToShow': 'विज्ञापन नहीं दिख सका। कृपया पुनः प्रयास करें।',
       'adMustComplete': 'कनेक्ट करने के लिए आपको विज्ञापन पूरा करना होगा।',
+      'speedTestCardTitle': 'Speed test',
+      'speedTestCardStart': 'Start test',
+      'speedTestCardRetest': 'Run again',
+      'speedTestCardTesting': 'Testing…',
+      'speedTestCardLocating': 'Locating nearest site…',
+      'speedTestCardDownloadWarmup': 'Warming up download…',
+      'speedTestCardDownloadMeasure': 'Measuring download throughput…',
+      'speedTestCardUploadWarmup': 'Warming up upload…',
+      'speedTestCardUploadMeasure': 'Measuring upload throughput…',
+      'speedTestCardComplete': 'Test complete',
+      'speedTestCardError': 'Test failed',
+      'speedTestCardDownloadLabel': 'Download',
+      'speedTestCardUploadLabel': 'Upload',
+      'speedTestCardLatencyLabel': 'Latency',
+      'speedTestCardLossLabel': 'Loss',
+      'speedTestCardServerLabel': 'Server',
+      'speedTestErrorTimeout': 'Timed out while measuring. Please retry.',
+      'speedTestErrorToken': 'Token expired. Please try the test again.',
+      'speedTestErrorTls': 'Secure connection failed. Check your network.',
+      'speedTestErrorNoResult': 'No measurement data returned.',
+      'speedTestErrorGeneric': 'We could not finish the test. Please retry.',
       'navHome': 'होम',
       'navSpeedTest': 'स्पीड टेस्ट',
       'navHistory': 'इतिहास',
@@ -734,142 +797,34 @@ class AppLocalizations {
   String get navSpeedTest => _value('navSpeedTest');
   String get navHistory => _value('navHistory');
   String get navSettings => _value('navSettings');
-  String get settingsLegal => _value('settingsLegal');
-  String get settingsPrivacyPolicy => _value('settingsPrivacyPolicy');
-  String get settingsPrivacyPolicySubtitle =>
-      _value('settingsPrivacyPolicySubtitle');
-  String get privacyPolicyDialogTitle => _value('privacyPolicyDialogTitle');
-  String get privacyPolicyAgreeButton => _value('privacyPolicyAgreeButton');
-  String get privacyPolicyCheckboxLabel =>
-      _value('privacyPolicyCheckboxLabel');
-  String get privacyPolicyAvailableInSettings =>
-      _value('privacyPolicyAvailableInSettings');
-  String get privacyPolicyScrollHintAction =>
-      _value('privacyPolicyScrollHintAction');
-  String get privacyPolicyScrollHint => _value('privacyPolicyScrollHint');
-  String get privacyPolicyScrollWarning =>
-      _value('privacyPolicyScrollWarning');
-  String get privacyPolicyAgreementRequired =>
-      _value('privacyPolicyAgreementRequired');
-  String get privacyPolicyCheckboxReady =>
-      _value('privacyPolicyCheckboxReady');
-  String get privacyPolicySummaryTitle =>
-      _value('privacyPolicySummaryTitle');
-  String get privacyPolicySummaryBody =>
-      _value('privacyPolicySummaryBody');
-  String get privacyPolicySectionWhoWeAreTitle =>
-      _value('privacyPolicySectionWhoWeAreTitle');
-  String get privacyPolicySectionWhoWeAreBody =>
-      _value('privacyPolicySectionWhoWeAreBody');
-  String get privacyPolicySectionDataTitle =>
-      _value('privacyPolicySectionDataTitle');
-  String get privacyPolicySectionDataIntro =>
-      _value('privacyPolicySectionDataIntro');
-  String get privacyPolicySectionDataLocal =>
-      _value('privacyPolicySectionDataLocal');
-  String get privacyPolicySectionDataLocalItem1 =>
-      _value('privacyPolicySectionDataLocalItem1');
-  String get privacyPolicySectionDataLocalItem2 =>
-      _value('privacyPolicySectionDataLocalItem2');
-  String get privacyPolicySectionDataLocalItem3 =>
-      _value('privacyPolicySectionDataLocalItem3');
-  String get privacyPolicySectionDataMLab =>
-      _value('privacyPolicySectionDataMLab');
-  String get privacyPolicySectionDataMLabItem1 =>
-      _value('privacyPolicySectionDataMLabItem1');
-  String get privacyPolicySectionDataMLabItem2 =>
-      _value('privacyPolicySectionDataMLabItem2');
-  String get privacyPolicySectionDataMLabItem3 =>
-      _value('privacyPolicySectionDataMLabItem3');
-  String get privacyPolicySectionDataMLabItem4 =>
-      _value('privacyPolicySectionDataMLabItem4');
-  String get privacyPolicySectionDataOptional =>
-      _value('privacyPolicySectionDataOptional');
-  String get privacyPolicySectionDataOptionalItem1 =>
-      _value('privacyPolicySectionDataOptionalItem1');
-  String get privacyPolicySectionDataOptionalItem2 =>
-      _value('privacyPolicySectionDataOptionalItem2');
-  String get privacyPolicySectionPurposeTitle =>
-      _value('privacyPolicySectionPurposeTitle');
-  String get privacyPolicySectionPurposeIntro =>
-      _value('privacyPolicySectionPurposeIntro');
-  String get privacyPolicySectionPurposeItem1 =>
-      _value('privacyPolicySectionPurposeItem1');
-  String get privacyPolicySectionPurposeItem2 =>
-      _value('privacyPolicySectionPurposeItem2');
-  String get privacyPolicySectionPurposeItem3 =>
-      _value('privacyPolicySectionPurposeItem3');
-  String get privacyPolicySectionPurposeItem4 =>
-      _value('privacyPolicySectionPurposeItem4');
-  String get privacyPolicySectionPermissionsTitle =>
-      _value('privacyPolicySectionPermissionsTitle');
-  String get privacyPolicySectionPermissionsItem1 =>
-      _value('privacyPolicySectionPermissionsItem1');
-  String get privacyPolicySectionPermissionsItem2 =>
-      _value('privacyPolicySectionPermissionsItem2');
-  String get privacyPolicySectionPermissionsItem3 =>
-      _value('privacyPolicySectionPermissionsItem3');
-  String get privacyPolicySectionSharingTitle =>
-      _value('privacyPolicySectionSharingTitle');
-  String get privacyPolicySectionSharingIntro =>
-      _value('privacyPolicySectionSharingIntro');
-  String get privacyPolicySectionSharingMLab =>
-      _value('privacyPolicySectionSharingMLab');
-  String get privacyPolicySectionSharingMLabBody =>
-      _value('privacyPolicySectionSharingMLabBody');
-  String get privacyPolicySectionSharingVendors =>
-      _value('privacyPolicySectionSharingVendors');
-  String get privacyPolicySectionSharingVendorsBody =>
-      _value('privacyPolicySectionSharingVendorsBody');
-  String get privacyPolicySectionTransfersTitle =>
-      _value('privacyPolicySectionTransfersTitle');
-  String get privacyPolicySectionTransfersBody =>
-      _value('privacyPolicySectionTransfersBody');
-  String get privacyPolicySectionRetentionTitle =>
-      _value('privacyPolicySectionRetentionTitle');
-  String get privacyPolicySectionRetentionBody =>
-      _value('privacyPolicySectionRetentionBody');
-  String get privacyPolicySectionRightsTitle =>
-      _value('privacyPolicySectionRightsTitle');
-  String get privacyPolicySectionRightsIntro =>
-      _value('privacyPolicySectionRightsIntro');
-  String get privacyPolicySectionRightsGlobal =>
-      _value('privacyPolicySectionRightsGlobal');
-  String get privacyPolicySectionRightsGlobalItem1 =>
-      _value('privacyPolicySectionRightsGlobalItem1');
-  String get privacyPolicySectionRightsGlobalItem2 =>
-      _value('privacyPolicySectionRightsGlobalItem2');
-  String get privacyPolicySectionRightsGlobalItem3 =>
-      _value('privacyPolicySectionRightsGlobalItem3');
-  String get privacyPolicySectionRightsGlobalItem4 =>
-      _value('privacyPolicySectionRightsGlobalItem4');
-  String get privacyPolicySectionRightsGlobalItem5 =>
-      _value('privacyPolicySectionRightsGlobalItem5');
-  String get privacyPolicySectionRightsGDPR =>
-      _value('privacyPolicySectionRightsGDPR');
-  String get privacyPolicySectionRightsGDPRBody =>
-      _value('privacyPolicySectionRightsGDPRBody');
-  String get privacyPolicySectionRightsIndia =>
-      _value('privacyPolicySectionRightsIndia');
-  String get privacyPolicySectionRightsIndiaBody =>
-      _value('privacyPolicySectionRightsIndiaBody');
-  String get privacyPolicySectionRightsCalifornia =>
-      _value('privacyPolicySectionRightsCalifornia');
-  String get privacyPolicySectionRightsCaliforniaBody =>
-      _value('privacyPolicySectionRightsCaliforniaBody');
-  String get privacyPolicySectionRightsChildren =>
-      _value('privacyPolicySectionRightsChildren');
-  String get privacyPolicySectionRightsChildrenBody =>
-      _value('privacyPolicySectionRightsChildrenBody');
-  String get privacyPolicySectionSecurityTitle =>
-      _value('privacyPolicySectionSecurityTitle');
-  String get privacyPolicySectionSecurityBody =>
-      _value('privacyPolicySectionSecurityBody');
-  String get privacyPolicySectionContactTitle =>
-      _value('privacyPolicySectionContactTitle');
-  String get privacyPolicySectionContactBody =>
-      _value('privacyPolicySectionContactBody');
-  String get privacyPolicyFooter => _value('privacyPolicyFooter');
+  String get speedTestCardTitle => _value('speedTestCardTitle');
+  String get speedTestCardStart => _value('speedTestCardStart');
+  String get speedTestCardRetest => _value('speedTestCardRetest');
+  String get speedTestCardTesting => _value('speedTestCardTesting');
+  String get speedTestCardLocating => _value('speedTestCardLocating');
+  String get speedTestCardDownloadWarmup =>
+      _value('speedTestCardDownloadWarmup');
+  String get speedTestCardDownloadMeasure =>
+      _value('speedTestCardDownloadMeasure');
+  String get speedTestCardUploadWarmup =>
+      _value('speedTestCardUploadWarmup');
+  String get speedTestCardUploadMeasure =>
+      _value('speedTestCardUploadMeasure');
+  String get speedTestCardComplete => _value('speedTestCardComplete');
+  String get speedTestCardError => _value('speedTestCardError');
+  String get speedTestCardDownloadLabel =>
+      _value('speedTestCardDownloadLabel');
+  String get speedTestCardUploadLabel =>
+      _value('speedTestCardUploadLabel');
+  String get speedTestCardLatencyLabel =>
+      _value('speedTestCardLatencyLabel');
+  String get speedTestCardLossLabel => _value('speedTestCardLossLabel');
+  String get speedTestCardServerLabel => _value('speedTestCardServerLabel');
+  String get speedTestErrorTimeout => _value('speedTestErrorTimeout');
+  String get speedTestErrorToken => _value('speedTestErrorToken');
+  String get speedTestErrorTls => _value('speedTestErrorTls');
+  String get speedTestErrorNoResult => _value('speedTestErrorNoResult');
+  String get speedTestErrorGeneric => _value('speedTestErrorGeneric');
 
   String connectionQualityLabel(ConnectionQuality quality) {
     switch (quality) {
