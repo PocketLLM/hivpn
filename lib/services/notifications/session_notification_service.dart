@@ -65,8 +65,31 @@ class SessionNotificationService {
   Future<bool> requestPermission() async {
     final androidImpl =
         _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    final granted = await androidImpl?.requestPermission();
-    return granted ?? true;
+    if (androidImpl == null) {
+      return true;
+    }
+
+    try {
+      final dynamic impl = androidImpl;
+      final dynamic result = await impl.requestPermission();
+      if (result is bool) {
+        return result;
+      }
+    } on NoSuchMethodError {
+      // Ignore and try fallback method name.
+    }
+
+    try {
+      final dynamic impl = androidImpl;
+      final dynamic result = await impl.requestNotificationsPermission();
+      if (result is bool) {
+        return result;
+      }
+    } on NoSuchMethodError {
+      // Ignore if the method isn't available.
+    }
+
+    return true;
   }
 
   Future<void> showConnecting(Server server) async {

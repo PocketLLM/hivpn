@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/analytics/analytics_service.dart';
 import '../../servers/domain/server.dart';
 import '../../servers/domain/server_catalog_controller.dart';
+import '../../servers/domain/server_providers.dart';
 import '../presentation/onboarding_speedtest_controller.dart';
 
 enum OnboardingServerMode { auto, manual, imported }
