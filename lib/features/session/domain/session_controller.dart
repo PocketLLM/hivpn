@@ -367,11 +367,22 @@ class SessionController extends StateNotifier<SessionState> {
         openVpnConfigDataBase64: server.openVpnConfigDataBase64 ?? '',
       );
 
-      if (vpnServer.openVpnConfig.isEmpty) {
-        _log('Missing OpenVPN config for server ${server.id}');
+      try {
+        final decodedConfig = vpnServer.openVpnConfig;
+        if (decodedConfig.trim().isEmpty) {
+          _log('Missing OpenVPN config for server ${server.id}');
+          state = state.copyWith(
+            status: SessionStatus.error,
+            errorMessage: 'Server does not have OpenVPN configuration.',
+          );
+          return;
+        }
+      } on AppError catch (error) {
+        _log('Invalid OpenVPN config for server ${server.id}: $error');
         state = state.copyWith(
           status: SessionStatus.error,
-          errorMessage: 'Server does not have OpenVPN configuration.',
+          errorMessage:
+              'Server configuration is invalid. Please choose another server.',
         );
         return;
       }
