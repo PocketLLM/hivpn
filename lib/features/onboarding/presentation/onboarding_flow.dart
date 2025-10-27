@@ -38,6 +38,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   int _currentPage = 0;
   bool _pendingConnect = false;
   bool _loggedStep3 = false;
+  late final ProviderSubscription<ServerCatalogState> _serverCatalogSubscription;
+  late final ProviderSubscription<SessionState> _sessionSubscription;
 
   @override
   void initState() {
@@ -46,16 +48,24 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(ref.read(analyticsServiceProvider).logEvent('onboarding_viewed_step_1'));
     });
-    ref.listen<ServerCatalogState>(serverCatalogProvider, (previous, next) {
-      ref.read(onboardingControllerProvider.notifier).maybeAssignAuto(next);
-    });
-    ref.listen<SessionState>(sessionControllerProvider, (previous, next) {
-      _handleSessionState(previous, next);
-    });
+    _serverCatalogSubscription = ref.listenManual<ServerCatalogState>(
+      serverCatalogProvider,
+      (previous, next) {
+        ref.read(onboardingControllerProvider.notifier).maybeAssignAuto(next);
+      },
+    );
+    _sessionSubscription = ref.listenManual<SessionState>(
+      sessionControllerProvider,
+      (previous, next) {
+        _handleSessionState(previous, next);
+      },
+    );
   }
 
   @override
   void dispose() {
+    _serverCatalogSubscription.close();
+    _sessionSubscription.close();
     _pageController.dispose();
     super.dispose();
   }
