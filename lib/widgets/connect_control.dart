@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/colors.dart';
 
+enum ConnectButtonVisualState { idle, connecting, active }
+
 class ConnectControl extends StatefulWidget {
   const ConnectControl({
     super.key,
@@ -13,6 +15,7 @@ class ConnectControl extends StatefulWidget {
     this.isActive = false,
     this.isLoading = false,
     this.statusText,
+    this.visualState = ConnectButtonVisualState.idle,
   });
 
   final bool enabled;
@@ -21,14 +24,60 @@ class ConnectControl extends StatefulWidget {
   final bool isActive;
   final bool isLoading;
   final String? statusText;
+  final ConnectButtonVisualState visualState;
 
   @override
   State<ConnectControl> createState() => _ConnectControlState();
 }
 
+class _ConnectControlColors {
+  const _ConnectControlColors({
+    required this.primary,
+    required this.secondary,
+    required this.halo,
+  });
+
+  final Color primary;
+  final Color secondary;
+  final Color halo;
+}
+
 class _ConnectControlState extends State<ConnectControl>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+
+  _ConnectControlColors _resolveColors(ThemeData theme) {
+    switch (widget.visualState) {
+      case ConnectButtonVisualState.connecting:
+        const warning = HiVpnColors.warning;
+        return _ConnectControlColors(
+          primary: warning,
+          secondary: _lighten(warning, 0.2),
+          halo: warning,
+        );
+      case ConnectButtonVisualState.active:
+        final primary = theme.colorScheme.primary;
+        final secondary = theme.colorScheme.secondary;
+        return _ConnectControlColors(
+          primary: primary,
+          secondary: secondary,
+          halo: primary,
+        );
+      case ConnectButtonVisualState.idle:
+      default:
+        final primary = theme.colorScheme.primary;
+        final secondary = theme.colorScheme.secondary;
+        return _ConnectControlColors(
+          primary: primary,
+          secondary: secondary,
+          halo: primary,
+        );
+    }
+  }
+
+  Color _lighten(Color color, [double amount = 0.2]) {
+    return Color.lerp(color, Colors.white, amount) ?? color;
+  }
 
   @override
   void initState() {
@@ -48,11 +97,12 @@ class _ConnectControlState extends State<ConnectControl>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDisabled = !widget.enabled || widget.isLoading;
+    final isDisabled = !widget.enabled;
     final double size = 180;
-
-    final primary = theme.colorScheme.primary;
-    final secondary = theme.colorScheme.secondary;
+    final colors = _resolveColors(theme);
+    final primary = colors.primary;
+    final secondary = colors.secondary;
+    final halo = colors.halo;
     final onPrimary = theme.colorScheme.onPrimary;
 
     return SizedBox(
@@ -77,7 +127,7 @@ class _ConnectControlState extends State<ConnectControl>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    primary.withOpacity(widget.isActive ? 0.35 : 0.18),
+                    halo.withOpacity(widget.isActive ? 0.35 : 0.18),
                     Colors.transparent,
                   ],
                   radius: 0.95,
@@ -100,7 +150,7 @@ class _ConnectControlState extends State<ConnectControl>
                 border: Border.all(color: primary.withOpacity(0.1)),
                 boxShadow: [
                   BoxShadow(
-                    color: primary.withOpacity(widget.isActive ? 0.25 : 0.12),
+                    color: halo.withOpacity(widget.isActive ? 0.25 : 0.12),
                     blurRadius: 32,
                     offset: const Offset(0, 18),
                   ),

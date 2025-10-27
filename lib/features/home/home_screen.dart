@@ -373,9 +373,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       textStyle: titleBaseStyle.copyWith(fontWeight: FontWeight.w700),
     );
 
-    final isBusy = session.status == SessionStatus.preparing ||
-        session.status == SessionStatus.connecting;
+    final isPreparing = session.status == SessionStatus.preparing;
+    final isConnecting = session.status == SessionStatus.connecting;
+    final isAttemptCancelable = isPreparing || isConnecting;
+    final isBusy = isAttemptCancelable;
     final isConnected = session.status == SessionStatus.connected;
+    final buttonState = isConnected
+        ? ConnectButtonVisualState.active
+        : isAttemptCancelable
+            ? ConnectButtonVisualState.connecting
+            : ConnectButtonVisualState.idle;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(top: 24, bottom: 160),
@@ -446,15 +453,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 KeyedSubtree(
                   key: _connectKey,
                   child: ConnectControl(
-                    enabled: !isBusy,
+                    enabled: !isBusy || isAttemptCancelable,
                     isActive: isConnected,
                     isLoading: isBusy,
-                    label: isConnected ? l10n.disconnect : l10n.connect,
-                    statusText: isConnected ? countdown : l10n.watchAdToStart,
+                    visualState: buttonState,
+                    label: isConnected
+                        ? l10n.disconnect
+                        : isAttemptCancelable
+                            ? l10n.cancel
+                            : l10n.connect,
+                    statusText: isConnected
+                        ? countdown
+                        : isAttemptCancelable
+                            ? l10n.tapToCancel
+                            : l10n.watchAdToStart,
                     onTap: () async {
                       await ref.read(hapticsServiceProvider).impact();
                       if (isConnected) {
                         await ref.read(sessionControllerProvider.notifier).disconnect();
+                      } else if (isAttemptCancelable) {
+                        await ref
+                            .read(sessionControllerProvider.notifier)
+                            .disconnect();
                       } else {
                         final server = selectedServer;
                         if (server == null) {

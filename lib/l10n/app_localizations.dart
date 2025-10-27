@@ -26,6 +26,8 @@ class AppLocalizations {
       'appTitle': 'HiVPN',
       'connect': 'Connect',
       'disconnect': 'Disconnect',
+      'cancel': 'Cancel',
+      'tapToCancel': 'Tap to cancel',
       'watchAdToStart': 'Watch ad to start',
       'pleaseSelectServer': 'Please select a server first.',
       'locations': 'Locations',
@@ -266,6 +268,8 @@ class AppLocalizations {
       'appTitle': 'HiVPN',
       'connect': 'Conectar',
       'disconnect': 'Desconectar',
+      'cancel': 'Cancelar',
+      'tapToCancel': 'Toca para cancelar',
       'watchAdToStart': 'Ver anuncio para comenzar',
       'pleaseSelectServer': 'Selecciona un servidor primero.',
       'locations': 'Ubicaciones',
@@ -505,6 +509,8 @@ class AppLocalizations {
       'appTitle': 'HiVPN',
       'connect': 'कनेक्ट करें',
       'disconnect': 'डिसकनेक्ट करें',
+      'cancel': 'रद्द करें',
+      'tapToCancel': 'रद्द करने के लिए टैप करें',
       'watchAdToStart': 'शुरू करने के लिए विज्ञापन देखें',
       'pleaseSelectServer': 'कृपया पहले एक सर्वर चुनें।',
       'locations': 'स्थान',
@@ -754,6 +760,8 @@ class AppLocalizations {
   String get appTitle => _value('appTitle');
   String get connect => _value('connect');
   String get disconnect => _value('disconnect');
+  String get cancel => _value('cancel');
+  String get tapToCancel => _value('tapToCancel');
   String get watchAdToStart => _value('watchAdToStart');
   String get pleaseSelectServer => _value('pleaseSelectServer');
   String get locations => _value('locations');
