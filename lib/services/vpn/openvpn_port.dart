@@ -75,9 +75,11 @@ class OpenVpnPort implements VpnPort {
       );
 
       await _engine!.initialize(
-        groupIdentifier: "group.com.example.hivpn",
-        providerBundleIdentifier: "com.example.hivpn.VPNExtension",
-        localizedDescription: "HiVPN",
+        groupIdentifier:
+            Platform.isIOS ? 'group.com.example.hivpn' : null,
+        providerBundleIdentifier:
+            Platform.isIOS ? 'com.example.hivpn.VPNExtension' : null,
+        localizedDescription: 'HiVPN',
       );
 
       _isInitialized = true;
@@ -122,7 +124,8 @@ class OpenVpnPort implements VpnPort {
         server.countryLong,
         username: config.username,
         password: config.password,
-        certIsRequired: true,
+        certIsRequired: false,
+        bypassCache: true,
       );
 
       return true;

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:openvpn_flutter/openvpn_flutter.dart';
+import 'package:openvpn_flutter/openvpn_flutter.dart' show VPNStage;
 
 import 'models/vpn.dart';
 import 'models/vpn_status.dart';
