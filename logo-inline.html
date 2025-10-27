@@ -1,0 +1,56 @@
+<div class="hivpn-logo-wrapper" aria-label="hiVPN wordmark">
+  <div class="hivpn-logo">
+    <span class="hi">hi</span><span class="vpn">VPN</span><span class="dot" aria-hidden="true">•</span>
+  </div>
+</div>
+<style>
+.hivpn-logo-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin: 1.5rem 0 0.5rem;
+}
+.hivpn-logo {
+  --hi-color: #0E1116;
+  --vpn-color: #2E7CF6;
+  --dot-color: #FF3B30;
+  font-family: Inter, -apple-system, Segoe UI, Roboto, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(2.4rem, 6vw, 3.4rem);
+  letter-spacing: 0.06em;
+  display: inline-flex;
+  align-items: center;
+  text-align: left;
+  color: var(--hi-color);
+}
+.hivpn-logo .hi {
+  color: var(--hi-color);
+}
+.hivpn-logo .vpn {
+  color: var(--vpn-color);
+  margin-left: 0.1em;
+}
+.hivpn-logo .dot {
+  color: var(--dot-color);
+  font-size: 0.35em;
+  margin-left: 0.3em;
+  align-self: flex-start;
+  position: relative;
+  top: 0.1em;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hivpn-logo {
+    animation: hivpn-reveal 1.2s ease both;
+  }
+  @keyframes hivpn-reveal {
+    from {
+      letter-spacing: 0.3em;
+      opacity: 0;
+    }
+    to {
+      letter-spacing: 0.06em;
+      opacity: 1;
+    }
+  }
+}
+</style>
