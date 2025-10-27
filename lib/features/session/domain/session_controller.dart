@@ -158,9 +158,15 @@ class SessionController extends StateNotifier<SessionState> {
       if (_pendingConnection != null) {
         _pendingConnection = null;
         await _notificationService.clear();
+        var errorMessage = 'Unable to establish VPN connection.';
+        if (stage == VPNStage.unknown) {
+          errorMessage = 'Authentication failed. Please try another server.';
+        } else if (stage == VPNStage.denied) {
+          errorMessage = 'VPN connection permission was denied.';
+        }
         state = state.copyWith(
           status: SessionStatus.error,
-          errorMessage: 'Unable to establish VPN connection.',
+          errorMessage: errorMessage,
         );
         return;
       }
@@ -172,6 +178,7 @@ class SessionController extends StateNotifier<SessionState> {
 
   bool _stageIndicatesFailure(VPNStage stage) {
     switch (stage) {
+      case VPNStage.unknown:
       case VPNStage.disconnected:
       case VPNStage.denied:
       case VPNStage.error:
