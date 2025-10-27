@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:openvpn_flutter/openvpn_flutter.dart';
 
 import 'models/vpn.dart';
@@ -71,6 +72,7 @@ class OpenVpnPort implements VpnPort {
         onVpnStageChanged: (stage, rawStage) {
           _isConnected = stage == VPNStage.connected;
           _stageController.add(stage);
+          debugPrint('[OpenVpnPort] Stage changed: $stage (raw: $rawStage)');
         },
       );
 
@@ -93,6 +95,7 @@ class OpenVpnPort implements VpnPort {
   @override
   Future<bool> connect(Vpn server) async {
     try {
+      debugPrint('[OpenVpnPort] connect() invoked for ${server.countryLong}');
       if (!_isInitialized) {
         await initialize();
       }
@@ -127,9 +130,10 @@ class OpenVpnPort implements VpnPort {
         certIsRequired: false,
       );
 
+      debugPrint('[OpenVpnPort] OpenVPN connect command dispatched');
       return true;
     } catch (e) {
-      print('Error connecting to VPN: $e');
+      debugPrint('[OpenVpnPort] Error connecting to VPN: $e');
       return false;
     }
   }
@@ -137,6 +141,7 @@ class OpenVpnPort implements VpnPort {
   @override
   Future<void> disconnect() async {
     try {
+      debugPrint('[OpenVpnPort] disconnect() requested');
       if (_engine != null) {
         _engine!.disconnect();
       }
@@ -144,7 +149,7 @@ class OpenVpnPort implements VpnPort {
       _currentServer = null;
       _stageController.add(VPNStage.disconnected);
     } catch (e) {
-      print('Error disconnecting from VPN: $e');
+      debugPrint('[OpenVpnPort] Error disconnecting from VPN: $e');
       rethrow;
     }
   }

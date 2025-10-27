@@ -71,6 +71,10 @@ class SessionController extends StateNotifier<SessionState> {
   Server? _currentServer;
   bool _manualDisconnectInProgress = false;
 
+  void _log(String message) {
+    debugPrint('[SessionController] $message');
+  }
+
   Future<void> _bootstrap() async {
     try {
       await _adService.initialize();
@@ -106,6 +110,7 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   Future<void> _handleVpnStage(VPNStage stage) async {
+    _log('VPN stage update: $stage');
     if (_manualDisconnectInProgress) {
       if (stage == VPNStage.disconnected) {
         _manualDisconnectInProgress = false;
@@ -263,10 +268,12 @@ class SessionController extends StateNotifier<SessionState> {
     required BuildContext context,
     required Server server,
   }) async {
+    _log('connect() requested for ${server.name} (${server.countryCode})');
     if (state.status == SessionStatus.connected) {
       throw const AppError('Already connected.');
     }
     if (!_vpnPort.isSupported) {
+      _log('Device does not support VPN');
       state = state.copyWith(
         status: SessionStatus.error,
         errorMessage: 'VPN is not supported on this device.',
@@ -275,6 +282,7 @@ class SessionController extends StateNotifier<SessionState> {
     }
     final settingsState = _ref.read(settingsControllerProvider);
     if (!settingsState.protocol.protocol.isSupported) {
+      _log('Protocol not supported: ${settingsState.protocol.protocol}');
       state = state.copyWith(
         status: SessionStatus.error,
         errorMessage: 'Protocol not supported yet. Please select WireGuard.',
@@ -289,6 +297,7 @@ class SessionController extends StateNotifier<SessionState> {
     try {
       await _adService.unlock(duration: sessionDuration, context: context);
     } catch (error) {
+      _log('Ad unlock failed: $error');
       state = state.copyWith(
         status: SessionStatus.disconnected,
         errorMessage: 'Ad must be completed to connect.',
@@ -297,6 +306,7 @@ class SessionController extends StateNotifier<SessionState> {
     }
 
     final prepared = await _vpnPort.prepare();
+    _log('VPN permission request result: $prepared');
     if (!prepared) {
       state = state.copyWith(
         status: SessionStatus.error,
@@ -306,6 +316,7 @@ class SessionController extends StateNotifier<SessionState> {
     }
 
     state = state.copyWith(status: SessionStatus.connecting);
+    _log('Connecting to VPN ${server.name} (${server.countryCode})');
 
     try {
       final initialIp = _ref.read(speedTestControllerProvider).ip;
@@ -324,6 +335,7 @@ class SessionController extends StateNotifier<SessionState> {
       );
 
       if (vpnServer.openVpnConfig.isEmpty) {
+        _log('Missing OpenVPN config for server ${server.id}');
         state = state.copyWith(
           status: SessionStatus.error,
           errorMessage: 'Server does not have OpenVPN configuration.',
@@ -339,6 +351,7 @@ class SessionController extends StateNotifier<SessionState> {
       await _notificationService.showConnecting(server);
 
       final connected = await _vpnPort.connect(vpnServer);
+      _log('OpenVPN connect() returned $connected');
       if (!connected) {
         _pendingConnection = null;
         await _notificationService.clear();
@@ -349,6 +362,7 @@ class SessionController extends StateNotifier<SessionState> {
         return;
       }
     } catch (e) {
+      _log('Connection error: $e');
       _pendingConnection = null;
       await _notificationService.clear();
       state = state.copyWith(
@@ -359,29 +373,36 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   Future<void> disconnect({bool userInitiated = true}) async {
+    _log('disconnect() requested. Status: ${state.status}, userInitiated: $userInitiated');
     _manualDisconnectInProgress = true;
     try {
-      final stats = await _vpnPort.getTunnelStats();
+      final wasConnected = state.status == SessionStatus.connected;
+      final stats = wasConnected ? await _vpnPort.getTunnelStats() : <String, dynamic>{};
       final server = _resolveHistoryServer();
       final meta = state.meta;
       Duration? actualDuration;
-      if (meta != null) {
+      if (wasConnected && meta != null) {
         final nowMs = await _clock.elapsedRealtime();
         final elapsedMs = nowMs - meta.startElapsedMs;
         final clamped = elapsedMs.clamp(0, meta.durationMs) as num;
         actualDuration = Duration(milliseconds: clamped.toInt());
       }
+      _pendingConnection = null;
       await _vpnPort.disconnect();
       await _notificationService.clear();
-      final sessionForHistory = actualDuration != null
-          ? state.copyWith(duration: actualDuration)
-          : state;
-      await _settings.recordSessionEnd(
-        sessionForHistory,
-        server: server,
-        stats: stats,
-      );
-      await _clearPersistedState();
+
+      if (wasConnected) {
+        final sessionForHistory = actualDuration != null
+            ? state.copyWith(duration: actualDuration)
+            : state;
+        await _settings.recordSessionEnd(
+          sessionForHistory,
+          server: server,
+          stats: stats,
+        );
+        await _clearPersistedState();
+      }
+
       _activeMeta = null;
       _currentServer = null;
       state = SessionState.initial();
