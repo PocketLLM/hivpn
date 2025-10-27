@@ -51,7 +51,8 @@ class Vpn {
   /// Get decoded OpenVPN config
   String get openVpnConfig {
     try {
-      return utf8.decode(base64.decode(openVpnConfigDataBase64));
+      final normalized = base64.normalize(openVpnConfigDataBase64.trim());
+      return utf8.decode(base64.decode(normalized));
     } catch (e) {
       return '';
     }

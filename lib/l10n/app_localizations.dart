@@ -30,6 +30,10 @@ class AppLocalizations {
       'pleaseSelectServer': 'Please select a server first.',
       'locations': 'Locations',
       'viewAll': 'View all',
+      'serverDownloadLabel': 'Download',
+      'serverUploadLabel': 'Upload',
+      'serverSessionsSingular': '1 active session',
+      'serverSessionsPlural': '{count} active sessions',
       'searchLocations': 'Search locations',
       'showingLocations': 'Showing {visible} of {total} locations',
       'noLocationsMatch': 'No locations match "{query}"',
@@ -266,6 +270,10 @@ class AppLocalizations {
       'pleaseSelectServer': 'Selecciona un servidor primero.',
       'locations': 'Ubicaciones',
       'viewAll': 'Ver todo',
+      'serverDownloadLabel': 'Descarga',
+      'serverUploadLabel': 'Subida',
+      'serverSessionsSingular': '1 sesión activa',
+      'serverSessionsPlural': '{count} sesiones activas',
       'searchLocations': 'Buscar ubicaciones',
       'showingLocations': 'Mostrando {visible} de {total} ubicaciones',
       'noLocationsMatch': 'No hay ubicaciones que coincidan con "{query}"',
@@ -501,6 +509,10 @@ class AppLocalizations {
       'pleaseSelectServer': 'कृपया पहले एक सर्वर चुनें।',
       'locations': 'स्थान',
       'viewAll': 'सभी देखें',
+      'serverDownloadLabel': 'डाउनलोड',
+      'serverUploadLabel': 'अपलोड',
+      'serverSessionsSingular': '1 सक्रिय सत्र',
+      'serverSessionsPlural': '{count} सक्रिय सत्र',
       'searchLocations': 'स्थान खोजें',
       'showingLocations': '{total} में से {visible} स्थान प्रदर्शित',
       'noLocationsMatch': '"{query}" से मेल खाते कोई स्थान नहीं हैं',
@@ -746,6 +758,13 @@ class AppLocalizations {
   String get pleaseSelectServer => _value('pleaseSelectServer');
   String get locations => _value('locations');
   String get viewAll => _value('viewAll');
+  String get serverDownloadLabel => _value('serverDownloadLabel');
+  String get serverUploadLabel => _value('serverUploadLabel');
+  String serverSessionsLabel(int count) {
+    final key =
+        count == 1 ? 'serverSessionsSingular' : 'serverSessionsPlural';
+    return _value(key).replaceAll('{count}', '$count');
+  }
   String get searchLocations => _value('searchLocations');
   String showingLocations(int visible, int total) {
     return _value('showingLocations')

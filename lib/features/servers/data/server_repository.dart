@@ -111,6 +111,7 @@ class ServerRepository {
       final displayName = record.hostName.isNotEmpty
           ? '${record.countryLong} • ${record.hostName}'
           : '${record.countryLong} • ${record.ip}';
+      final config = record.openVpnConfig.trim();
       return Server(
         id: 'vpngate-${record.countryShort.toLowerCase()}-$hostSlug',
         name: displayName,
@@ -126,7 +127,7 @@ class ServerRepository {
         downloadSpeed: record.speed,
         uploadSpeed: record.speed,
         sessions: record.sessions,
-        openVpnConfigDataBase64: record.openVpnConfig,
+        openVpnConfigDataBase64: config,
         regionName: record.regionName,
         cityName: record.city,
         score: record.score,
