@@ -66,16 +66,22 @@ class Vpn {
 
       final decoded = utf8.decode(decodedBytes);
       if (decoded.trim().isEmpty) {
-        throw const FormatException('Decoded OpenVPN config is empty.');
+        throw const FormatException(
+          'Decoded OpenVPN config is empty after trim.',
+        );
       }
 
       return decoded;
-    } on AppError {
-      rethrow;
     } on FormatException catch (error) {
       throw AppError('Failed to decode OpenVPN configuration.', cause: error);
     } catch (error) {
-      throw AppError('Failed to decode OpenVPN configuration.', cause: error);
+      if (error is AppError) {
+        rethrow;
+      }
+      throw AppError(
+        'An unexpected error occurred while decoding the configuration.',
+        cause: error,
+      );
     }
   }
 
