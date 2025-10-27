@@ -47,7 +47,7 @@ class _SpeedGaugeState extends State<SpeedGauge> {
     final theme = Theme.of(context);
     final normalizedSpeed = (widget.speed / widget.maxValue).clamp(0, 1).toDouble();
     final previousNormalized = (_previousSpeed / widget.maxValue).clamp(0, 1).toDouble();
-    final safeMax = widget.maxValue <= 0 ? 1 : widget.maxValue;
+    final double safeMax = widget.maxValue <= 0 ? 1.0 : widget.maxValue;
 
     return SizedBox(
       width: 260,
