@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/home/home_screen.dart';
 import '../features/onboarding/presentation/onboarding_flow.dart';
+import '../features/splash/presentation/splash_screen.dart';
 import '../features/settings/domain/preferences_controller.dart';
 import '../l10n/app_localizations.dart';
 import '../platform/android/extend_intent_handler.dart';
@@ -25,11 +26,13 @@ class HiVpnApp extends ConsumerWidget {
     final navigatorKey = ref.watch(navigatorKeyProvider);
     final home = ready.when<Widget>(
       data: (_) {
-        return preferences.onboardingCompleted
-            ? const HomeScreen()
-            : const OnboardingFlow();
+        return SplashScreen(
+          onFinishedBuilder: (_) => preferences.onboardingCompleted
+              ? const HomeScreen()
+              : const OnboardingFlow(),
+        );
       },
-      loading: () => const _AppLoading(),
+      loading: () => const SplashScreen(),
       error: (error, stack) => _AppError(message: error.toString()),
     );
     return MaterialApp(
@@ -46,19 +49,6 @@ class HiVpnApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       home: home,
-    );
-  }
-}
-
-class _AppLoading extends StatelessWidget {
-  const _AppLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
     );
   }
 }
