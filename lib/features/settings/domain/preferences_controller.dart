@@ -53,6 +53,11 @@ class PreferencesController extends StateNotifier<PreferencesState> {
     await _persist();
   }
 
+  Future<void> setAutoReconnect(bool enabled) async {
+    state = state.copyWith(autoReconnect: enabled);
+    await _persist();
+  }
+
   Future<void> setLocale(String? code) async {
     state = state.copyWith(localeCode: code);
     await _persist();
@@ -62,9 +67,19 @@ class PreferencesController extends StateNotifier<PreferencesState> {
     state = state.copyWith(privacyPolicyAccepted: accepted);
     await _persist();
   }
+
+  Future<void> setOnboardingCompleted(bool completed) async {
+    state = state.copyWith(onboardingCompleted: completed);
+    await _persist();
+  }
 }
 
 final preferencesControllerProvider =
     StateNotifierProvider<PreferencesController, PreferencesState>((ref) {
   return PreferencesController(ref);
+});
+
+final preferencesReadyProvider = FutureProvider<void>((ref) async {
+  final notifier = ref.watch(preferencesControllerProvider.notifier);
+  await notifier.ready;
 });

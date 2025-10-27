@@ -62,6 +62,13 @@ class SessionNotificationService {
     _initialized = true;
   }
 
+  Future<bool> requestPermission() async {
+    final androidImpl =
+        _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    final granted = await androidImpl?.requestPermission();
+    return granted ?? true;
+  }
+
   Future<void> showConnecting(Server server) async {
     if (!_initialized) return;
     _currentServerId = server.id;
