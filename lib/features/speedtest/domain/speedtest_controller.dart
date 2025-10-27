@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_speed_test_plus/flutter_speed_test_plus.dart';
 
@@ -96,92 +99,116 @@ class SpeedTestController extends StateNotifier<SpeedTestState> {
         );
       }
 
-      await _service.startTest(
-        useFastApi: useFastApi,
-        downloadTestServer: downloadServer,
-        uploadTestServer: uploadServer,
-        onProgress: (percent, data) {
-          final mbps = _toMbps(data);
-          switch (data.type) {
-            case TestType.download:
+      try {
+        await _service.startTest(
+          useFastApi: useFastApi,
+          downloadTestServer: downloadServer,
+          uploadTestServer: uploadServer,
+          onProgress: (percent, data) {
+            final mbps = _toMbps(data);
+            switch (data.type) {
+              case TestType.download:
+                emitDownload(mbps);
+                break;
+              case TestType.upload:
+                emitUpload(mbps);
+                break;
+            }
+          },
+          onDownloadComplete: (data) {
+            final mbps = _toMbps(data);
+            if (downloadSeries.isEmpty || downloadSeries.last != mbps) {
               emitDownload(mbps);
-              break;
-            case TestType.upload:
+            }
+          },
+          onUploadComplete: (data) {
+            final mbps = _toMbps(data);
+            if (uploadSeries.isEmpty || uploadSeries.last != mbps) {
               emitUpload(mbps);
-              break;
-          }
-        },
-        onDownloadComplete: (data) {
-          final mbps = _toMbps(data);
-          if (downloadSeries.isEmpty || downloadSeries.last != mbps) {
-            emitDownload(mbps);
-          }
-        },
-        onUploadComplete: (data) {
-          final mbps = _toMbps(data);
-          if (uploadSeries.isEmpty || uploadSeries.last != mbps) {
-            emitUpload(mbps);
-          }
-        },
-        onCompleted: (download, upload) {
-          completionTimestamp = DateTime.now().toUtc();
-          final downloadMbps = _toMbps(download);
-          final uploadMbps = _toMbps(upload);
-          if (downloadSeries.isEmpty) {
-            downloadSeries.add(downloadMbps);
-          }
-          if (uploadSeries.isEmpty) {
-            uploadSeries.add(uploadMbps);
-          }
-          state = state.copyWith(
-            status: SpeedTestStatus.complete,
-            downloadMbps: downloadMbps,
-            uploadMbps: uploadMbps,
-            downloadSeries: List<double>.from(downloadSeries),
-            uploadSeries: List<double>.from(uploadSeries),
-            lastRun: completionTimestamp,
-            errorMessage: null,
-          );
-          if (!completer.isCompleted) {
-            completer.complete();
-          }
-        },
-        onError: (message, code) {
-          hadError = true;
-          state = state.copyWith(
-            status: SpeedTestStatus.error,
-            errorMessage: message.isNotEmpty ? message : code,
-            downloadSeries: const <double>[],
-            uploadSeries: const <double>[],
-          );
-          if (!completer.isCompleted) {
-            completer.complete();
-          }
-        },
-        onCancel: () {
-          hadError = true;
-          state = state.copyWith(
-            status: SpeedTestStatus.error,
-            errorMessage: 'Speed test was cancelled.',
-            downloadSeries: const <double>[],
-            uploadSeries: const <double>[],
-          );
-          if (!completer.isCompleted) {
-            completer.complete();
-          }
-        },
-        onStarted: () {
-          state = state.copyWith(status: SpeedTestStatus.running, errorMessage: null);
-        },
-      );
-
-      await completer.future;
+            }
+          },
+          onCompleted: (download, upload) {
+            completionTimestamp = DateTime.now().toUtc();
+            final downloadMbps = _toMbps(download);
+            final uploadMbps = _toMbps(upload);
+            if (downloadSeries.isEmpty) {
+              downloadSeries.add(downloadMbps);
+            }
+            if (uploadSeries.isEmpty) {
+              uploadSeries.add(uploadMbps);
+            }
+            state = state.copyWith(
+              status: SpeedTestStatus.complete,
+              downloadMbps: downloadMbps,
+              uploadMbps: uploadMbps,
+              downloadSeries: List<double>.from(downloadSeries),
+              uploadSeries: List<double>.from(uploadSeries),
+              lastRun: completionTimestamp,
+              errorMessage: null,
+            );
+            if (!completer.isCompleted) {
+              completer.complete();
+            }
+          },
+          onError: (message, code) {
+            hadError = true;
+            state = state.copyWith(
+              status: SpeedTestStatus.error,
+              errorMessage: _friendlyPluginError(message, code),
+              downloadSeries: const <double>[],
+              uploadSeries: const <double>[],
+            );
+            if (!completer.isCompleted) {
+              completer.complete();
+            }
+          },
+          onCancel: () {
+            hadError = true;
+            state = state.copyWith(
+              status: SpeedTestStatus.error,
+              errorMessage: 'Speed test was cancelled.',
+              downloadSeries: const <double>[],
+              uploadSeries: const <double>[],
+            );
+            if (!completer.isCompleted) {
+              completer.complete();
+            }
+          },
+          onStarted: () {
+            state = state.copyWith(status: SpeedTestStatus.running, errorMessage: null);
+          },
+        );
+        await completer.future;
+      } on Object catch (error) {
+        hadError = true;
+        state = state.copyWith(
+          status: SpeedTestStatus.error,
+          errorMessage: _friendlyException(error),
+          downloadSeries: const <double>[],
+          uploadSeries: const <double>[],
+        );
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      }
 
       if (hadError || state.status != SpeedTestStatus.complete) {
         return;
       }
 
-      final ip = await _service.externalIp(config.ipEndpoint);
+      String ip = state.ip ?? '';
+      try {
+        final fetched = await _service.externalIp(config.ipEndpoint);
+        if (fetched.isNotEmpty) {
+          ip = fetched;
+        }
+      } on DioException catch (_) {
+        // Leave IP unchanged when the lookup fails
+      } on TimeoutException catch (_) {
+        // Leave IP unchanged when the lookup times out
+      } on SocketException catch (_) {
+        // Leave IP unchanged when the lookup fails due to connectivity
+      }
       final updated = state.copyWith(
         ip: ip.isNotEmpty ? ip : state.ip,
         lastRun: completionTimestamp ?? state.lastRun ?? DateTime.now().toUtc(),
@@ -195,8 +222,36 @@ class SpeedTestController extends StateNotifier<SpeedTestState> {
         downloadSeries: const <double>[],
         uploadSeries: const <double>[],
       );
-    }
   }
+}
+
+String _friendlyPluginError(String message, String code) {
+  final combined = (message.isNotEmpty ? message : code).trim();
+  final normalized = combined.toLowerCase();
+  if (normalized.contains('socket') || normalized.contains('host lookup')) {
+    return 'Unable to reach the speed test servers. Please check your connection and try again.';
+  }
+  if (normalized.contains('timeout')) {
+    return 'The speed test timed out before it could finish. Try again in a moment.';
+  }
+  if (normalized.contains('cancel')) {
+    return 'Speed test was cancelled. Tap start to try again.';
+  }
+  return combined.isEmpty ? 'The speed test encountered an unexpected error.' : combined;
+}
+
+String _friendlyException(Object error) {
+  if (error is TimeoutException) {
+    return 'The speed test took too long and timed out. Please try again.';
+  }
+  if (error is SocketException) {
+    return 'Unable to reach the speed test servers. Please check your connection and try again.';
+  }
+  if (error is PlatformException) {
+    return error.message ?? 'The speed test could not start. Please try again.';
+  }
+  return error.toString();
+}
 
   Future<void> hydrate() async {
     final prefs = await _ref.read(prefsStoreProvider.future);
