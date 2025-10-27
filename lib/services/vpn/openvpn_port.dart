@@ -110,7 +110,7 @@ class OpenVpnPort implements VpnPort {
 
       late final String configText;
       try {
-        configText = server.openVpnConfig.trim();
+        configText = server.openVpnConfig;
       } on AppError catch (error) {
         debugPrint('[OpenVpnPort] Invalid OpenVPN config: $error');
         _stageController.add(VPNStage.error);
@@ -125,10 +125,8 @@ class OpenVpnPort implements VpnPort {
       }
 
       final sanitizedConfig = _ensureTrailingNewline(configText);
-      final configWithCredentials = _ensureInlineCredentials(
+      final configWithCredentials = _ensureAuthUserPassDirective(
         sanitizedConfig,
-        username: 'vpn',
-        password: 'vpn',
       );
 
       final config = VpnConfig(
@@ -208,46 +206,26 @@ class OpenVpnPort implements VpnPort {
     return '$config\n';
   }
 
-  String _ensureInlineCredentials(
-    String config, {
-    required String username,
-    required String password,
-  }) {
-    final authBlockPattern =
-        RegExp(r'<auth-user-pass>.*?</auth-user-pass>', dotAll: true);
-    if (authBlockPattern.hasMatch(config)) {
-      return config;
-    }
+  model.VpnStatus? _lastStatus;
+}
 
-    final sanitizedUsername = username.replaceAll('\n', '').trim();
-    final sanitizedPassword = password.replaceAll('\n', '').trim();
-    final credentialsBlock = [
-      '<auth-user-pass>',
-      sanitizedUsername,
-      sanitizedPassword,
-      '</auth-user-pass>',
-    ].join('\n');
+String _ensureAuthUserPassDirective(String config) {
+  final authBlockPattern =
+      RegExp(r'<auth-user-pass>.*?</auth-user-pass>', dotAll: true, caseSensitive: false);
+  final stripped = config.replaceAll(authBlockPattern, '').trimRight();
+  final authLinePattern = RegExp(r'^\s*auth-user-pass(?:\s+.+)?\s*$', multiLine: true);
 
-    final authLinePattern = RegExp(r'^\s*auth-user-pass.*$', multiLine: true);
-    if (authLinePattern.hasMatch(config)) {
-      final replacement = [
-        'auth-user-pass',
-        credentialsBlock,
-      ].join('\n');
-      return config.replaceFirst(
-        authLinePattern,
-        '$replacement\n',
-      );
-    }
-
-    return [
-      config.trimRight(),
-      'auth-user-pass',
-      credentialsBlock,
-      '',
-    ].join('\n');
+  if (authLinePattern.hasMatch(stripped)) {
+    return stripped.replaceFirst(authLinePattern, 'auth-user-pass');
   }
 
-  model.VpnStatus? _lastStatus;
+  final buffer = StringBuffer(stripped);
+  if (!stripped.endsWith('\n')) {
+    buffer.write('\n');
+  }
+  buffer
+    ..write('auth-user-pass')
+    ..write('\n');
+  return buffer.toString();
 }
 
