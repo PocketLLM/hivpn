@@ -62,5 +62,5 @@ class SpeedTestService {
 
   Future<bool> cancelTest() => _tester.cancelTest();
 
-  static const int _defaultFileSizeBytes = 10 * 1024 * 1024;
+  static const int _defaultFileSizeBytes = 6 * 1024 * 1024;
 }

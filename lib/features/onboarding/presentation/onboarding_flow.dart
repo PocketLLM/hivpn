@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../services/analytics/analytics_service.dart';
 import '../../../services/notifications/session_notification_service.dart';
 import '../../../services/vpn/vpn_provider.dart';
+import '../../../widgets/server_tile.dart';
 import '../../home/home_screen.dart';
 import '../../servers/domain/server.dart';
 import '../../servers/domain/server_catalog_controller.dart';
@@ -23,6 +24,7 @@ import '../../session/domain/session_status.dart';
 import '../../settings/domain/preferences_controller.dart';
 import '../../settings/domain/preferences_state.dart';
 import '../../settings/presentation/privacy_policy_consent_page.dart';
+import '../../speedtest/presentation/widgets/speed_gauge.dart';
 import 'onboarding_controller.dart';
 import 'onboarding_speedtest_controller.dart';
 
@@ -90,6 +92,18 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       unawaited(ref.read(analyticsServiceProvider).logEvent(
         'connect_failure',
         {'message': message},
+      ));
+      unawaited(_showConnectionErrorSheet(message));
+    } else if (next.status == SessionStatus.disconnected &&
+        next.errorMessage != null &&
+        (previous?.status == SessionStatus.preparing || previous?.status == SessionStatus.connecting)) {
+      _pendingConnect = false;
+      ref.read(onboardingControllerProvider.notifier).setConnecting(false);
+      final message = next.errorMessage!;
+      ref.read(onboardingControllerProvider.notifier).setConnectionError(message);
+      unawaited(ref.read(analyticsServiceProvider).logEvent(
+        'connect_failure',
+        {'message': message, 'stage': 'disconnected'},
       ));
       unawaited(_showConnectionErrorSheet(message));
     }
@@ -229,6 +243,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                       await _navigateToHome();
                     },
                     onShowRisks: _showRisksSheet,
+                    onCancelConnect: _handleCancelConnect,
                   ),
                 ],
               ),
@@ -286,18 +301,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       await _requestNotifications();
     }
 
-    final vpnPort = ref.read(openVpnPortProvider);
-    final granted = await vpnPort.prepare();
-    unawaited(analytics.logEvent('vpn_permission_result', {'granted': granted}));
-    if (!granted) {
-      onboardingNotifier.setConnecting(false);
-      setState(() {
-        _pendingConnect = false;
-      });
-      _showSnackBar('VPN permission is required to continue.');
-      return;
-    }
-
     try {
       await ref.read(sessionControllerProvider.notifier).connect(
             context: context,
@@ -312,6 +315,24 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       onboardingNotifier.setConnectionError(message);
       await analytics.logEvent('connect_failure', {'message': message});
       unawaited(_showConnectionErrorSheet(message));
+    }
+  }
+
+  Future<void> _handleCancelConnect() async {
+    final onboardingNotifier = ref.read(onboardingControllerProvider.notifier);
+    final analytics = ref.read(analyticsServiceProvider);
+    if (_pendingConnect || onboardingNotifier.state.connecting) {
+      setState(() {
+        _pendingConnect = false;
+      });
+      onboardingNotifier.setConnecting(false);
+    }
+    try {
+      await ref.read(sessionControllerProvider.notifier).disconnect();
+      unawaited(analytics.logEvent('connect_cancelled'));
+      _showSnackBar('Connection cancelled.');
+    } catch (error) {
+      _showSnackBar('Unable to cancel connection: $error');
     }
   }
 
@@ -514,50 +535,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       context: context,
       useSafeArea: true,
       showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) {
-        final theme = Theme.of(context);
-        final catalog = ref.watch(serverCatalogProvider);
-        final servers = catalog.sortedServers;
-        if (catalog.isLoading) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        if (servers.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Text('No community servers are available right now. Pull to refresh later.'),
-          );
-        }
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Browse community list',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: servers.length,
-                itemBuilder: (context, index) {
-                  final server = servers[index];
-                  final latency = catalog.latencyMs[server.id];
-                  return ListTile(
-                    title: Text(server.name),
-                    subtitle: Text(_formatServerSubtitle(server, latency)),
-                    onTap: () {
-                      Navigator.of(context).pop(server);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
+        return const SizedBox(
+          height: 520,
+          child: _OnboardingServerPickerSheet(),
         );
       },
     );
@@ -625,6 +610,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     );
   }
 
+
   Future<void> _openLink(Uri uri) async {
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       _showSnackBar('Unable to open ${uri.toString()}');
@@ -637,21 +623,167 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     );
   }
 
-  String _formatServerSubtitle(Server server, int? latency) {
-    final metrics = <String>[];
-    if (server.countryName?.isNotEmpty == true) {
-      metrics.add(server.countryName!);
+}
+
+class _OnboardingServerPickerSheet extends ConsumerStatefulWidget {
+  const _OnboardingServerPickerSheet();
+
+  @override
+  ConsumerState<_OnboardingServerPickerSheet> createState() => _OnboardingServerPickerSheetState();
+}
+
+class _OnboardingServerPickerSheetState extends ConsumerState<_OnboardingServerPickerSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  bool _matches(Server server) {
+    if (_query.isEmpty) {
+      return true;
     }
-    if (latency != null && latency < 9999) {
-      metrics.add('${latency} ms');
-    }
-    if (server.downloadSpeed != null && server.downloadSpeed! > 0) {
-      metrics.add('${(server.downloadSpeed! / 1000).toStringAsFixed(1)} Mbps');
-    }
-    if (server.sessions != null && server.sessions! > 0) {
-      metrics.add('${server.sessions} sessions');
-    }
-    return metrics.isEmpty ? 'No extra details available' : metrics.join(' • ');
+    final needle = _query.toLowerCase();
+    final fields = <String?>[
+      server.name,
+      server.countryName,
+      server.countryCode,
+      server.cityName,
+      server.regionName,
+      server.hostName,
+    ];
+    return fields.whereType<String>().any((value) => value.toLowerCase().contains(needle));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final catalog = ref.watch(serverCatalogProvider);
+    final onboardingState = ref.watch(onboardingControllerProvider);
+    final servers = catalog.sortedServers.where(_matches).toList(growable: false);
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Browse community list',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      catalog.servers.isEmpty
+                          ? 'Fetching volunteer servers…'
+                          : '${servers.length} of ${catalog.servers.length} locations shown',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.65),
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Refresh list',
+                onPressed: () async {
+                  await ref.read(serverCatalogProvider.notifier).refreshServers();
+                },
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+          child: TextField(
+            controller: _searchController,
+            onChanged: (value) {
+              setState(() {
+                _query = value.trim();
+              });
+            },
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search),
+              labelText: 'Search locations',
+              suffixIcon: _query.isNotEmpty
+                  ? IconButton(
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {
+                          _query = '';
+                        });
+                      },
+                      icon: const Icon(Icons.clear),
+                    )
+                  : null,
+              border: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(16)),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: Builder(
+            builder: (context) {
+              if (catalog.isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (catalog.error != null && catalog.servers.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    'Unable to load servers: ${catalog.error}',
+                    textAlign: TextAlign.center,
+                  ),
+                );
+              }
+              if (servers.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    _query.isEmpty
+                        ? 'No community servers are available right now. Pull to refresh later.'
+                        : 'No locations match "${_searchController.text}".',
+                    textAlign: TextAlign.center,
+                  ),
+                );
+              }
+              return RefreshIndicator(
+                onRefresh: () async {
+                  await ref.read(serverCatalogProvider.notifier).refreshServers();
+                },
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: servers.length,
+                  itemBuilder: (context, index) {
+                    final server = servers[index];
+                    final selectedId = onboardingState.selectedServer?.id;
+                    return ServerTile(
+                      server: server,
+                      selected: selectedId == server.id,
+                      latencyMs: catalog.latencyMs[server.id],
+                      onTap: () {
+                        Navigator.of(context).pop(server);
+                      },
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
   }
 }
 
@@ -854,6 +986,7 @@ class _ConnectPage extends StatelessWidget {
     required this.onConnectWithoutNotifications,
     required this.onSkipSetup,
     required this.onShowRisks,
+    required this.onCancelConnect,
   });
 
   final OnboardingState state;
@@ -869,6 +1002,7 @@ class _ConnectPage extends StatelessWidget {
   final VoidCallback onConnectWithoutNotifications;
   final Future<void> Function() onSkipSetup;
   final Future<void> Function() onShowRisks;
+  final Future<void> Function() onCancelConnect;
 
   @override
   Widget build(BuildContext context) {
@@ -992,13 +1126,27 @@ class _ConnectPage extends StatelessWidget {
                 : const Text('Allow & Connect'),
           ),
           const SizedBox(height: 12),
-          OutlinedButton(
-            onPressed: isConnecting ? null : onConnectWithoutNotifications,
-            child: const Text('Connect without notifications'),
-          ),
+          if (isConnecting)
+            OutlinedButton.icon(
+              onPressed: () {
+                unawaited(onCancelConnect());
+              },
+              icon: const Icon(Icons.close),
+              label: const Text('Cancel connection'),
+            )
+          else
+            OutlinedButton(
+              onPressed: onConnectWithoutNotifications,
+              child: const Text('Connect without notifications'),
+            ),
           const SizedBox(height: 12),
           TextButton(
-            onPressed: isConnecting ? null : () => unawaited(onSkipSetup()),
+            onPressed: () {
+              if (isConnecting) {
+                unawaited(onCancelConnect());
+              }
+              unawaited(onSkipSetup());
+            },
             child: const Text('Set this up later'),
           ),
           const SizedBox(height: 24),
@@ -1026,14 +1174,47 @@ class _SpeedProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final gaugeStatus = () {
+      switch (state.status) {
+        case OnboardingSpeedTestStatus.running:
+          return 'Testing…';
+        case OnboardingSpeedTestStatus.completed:
+          return 'Result ready';
+        case OnboardingSpeedTestStatus.error:
+          return 'Unavailable';
+        case OnboardingSpeedTestStatus.idle:
+        default:
+          return state.optIn ? 'Ready' : 'Skipped';
+      }
+    }();
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            LinearProgressIndicator(value: state.isRunning ? state.progress : (state.summary != null ? 1 : 0)),
+            Center(
+              child: SpeedGauge(
+                speed: state.downloadMbps,
+                statusLabel: gaugeStatus,
+                title: 'Download',
+                maxValue: 100,
+              ),
+            ),
             const SizedBox(height: 16),
+            if (state.isRunning) ...[
+              LinearProgressIndicator(value: state.progress > 0 ? state.progress : null),
+              const SizedBox(height: 8),
+              Text(
+                'Collecting download and upload samples…',
+                style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+            ],
             Row(
               children: [
                 Expanded(
