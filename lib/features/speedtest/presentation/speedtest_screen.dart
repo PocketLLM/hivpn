@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../theme/colors.dart';
+import '../../../widgets/page_app_bar.dart';
 import '../domain/speedtest_controller.dart';
 import '../domain/speedtest_state.dart';
 import 'widgets/speed_gauge.dart';
@@ -23,32 +24,29 @@ class SpeedTestScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: const HiVpnPageAppBar(title: 'Speed Test'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 32, 24, 160),
           children: [
             Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Speed Test',
-                      style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: Text(
-                        statusMessage,
-                        key: ValueKey<int>(state.status.index),
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.65),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 8),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: Text(
+                          statusMessage,
+                          key: ValueKey<int>(state.status.index),
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.65),
+                          ),
                         ),
                       ),
-                    ),
                     const SizedBox(height: 28),
                     _GaugePanel(
                       state: state,

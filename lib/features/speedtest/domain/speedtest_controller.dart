@@ -9,6 +9,8 @@ import 'package:flutter_speed_test_plus/flutter_speed_test_plus.dart';
 
 import '../../../services/speedtest/speedtest_service.dart';
 import '../../../services/storage/prefs.dart';
+import '../../history/domain/speed_test_history_notifier.dart';
+import '../../history/domain/speed_test_record.dart';
 import '../data/speedtest_repository.dart';
 import 'speedtest_state.dart';
 
@@ -215,6 +217,16 @@ class SpeedTestController extends StateNotifier<SpeedTestState> {
       );
       state = updated;
       await prefs.setString('speedtest_last', jsonEncode(_serializeResult(updated)));
+      final history = _ref.read(speedTestHistoryProvider.notifier);
+      unawaited(history.addRecord(
+        SpeedTestRecord(
+          timestamp: updated.lastRun ?? DateTime.now().toUtc(),
+          downloadMbps: updated.downloadMbps,
+          uploadMbps: updated.uploadMbps,
+          pingMs: updated.ping?.inMilliseconds,
+          ip: updated.ip,
+        ),
+      ));
     } catch (error) {
       state = state.copyWith(
         status: SpeedTestStatus.error,

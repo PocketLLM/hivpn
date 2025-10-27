@@ -128,6 +128,13 @@ class SettingsController extends StateNotifier<SettingsState> {
     final bytesRx = (stats['rxBytes'] as num?)?.toInt() ?? 0;
     final bytesTx = (stats['txBytes'] as num?)?.toInt() ?? 0;
     final duration = session.duration ?? endedAt.difference(startedAt);
+    final locationParts = <String>[
+      if (server.cityName != null && server.cityName!.isNotEmpty) server.cityName!,
+      if (server.regionName != null && server.regionName!.isNotEmpty) server.regionName!,
+      if (server.countryName != null && server.countryName!.isNotEmpty) server.countryName!,
+    ];
+    final location = locationParts.isEmpty ? null : locationParts.join(', ');
+
     await history.addRecord(
       ConnectionRecord(
         serverId: server.id,
@@ -137,6 +144,12 @@ class SettingsController extends StateNotifier<SettingsState> {
         durationSeconds: duration.inSeconds,
         bytesReceived: bytesRx,
         bytesSent: bytesTx,
+        publicIp: session.publicIp,
+        serverIp: server.ip ?? server.hostName ?? server.endpoint,
+        serverLocation: location,
+        serverBandwidth: server.bandwidth,
+        serverDownloadSpeed: server.downloadSpeed,
+        serverUploadSpeed: server.uploadSpeed,
       ),
     );
   }
