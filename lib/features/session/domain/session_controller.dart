@@ -91,8 +91,7 @@ class SessionController extends StateNotifier<SessionState> {
       _pendingConnection = null;
       state = state.copyWith(
         status: SessionStatus.error,
-        errorMessage:
-            'Connection attempt timed out. Please try a different server.',
+        errorMessage: 'Connection timed out. The server may be unresponsive.',
       );
       unawaited(_notificationService.clear());
       if (pending != null) {
