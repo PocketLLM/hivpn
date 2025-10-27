@@ -124,16 +124,15 @@ class OpenVpnPort implements VpnPort {
         return false;
       }
 
-      final sanitizedConfig = _ensureTrailingNewline(configText);
-      final configWithCredentials = _ensureAuthUserPassDirective(
-        sanitizedConfig,
-      );
+      final sanitizedConfig = _sanitizeOpenVpnConfig(configText);
+      final username = sanitizedConfig.username ?? 'vpn';
+      final password = sanitizedConfig.password ?? 'vpn';
 
       final config = VpnConfig(
-        config: configWithCredentials,
+        config: sanitizedConfig.config,
         country: server.countryLong,
-        username: 'vpn',
-        password: 'vpn',
+        username: username,
+        password: password,
       );
 
       await _engine!.connect(
@@ -206,26 +205,78 @@ class OpenVpnPort implements VpnPort {
     return '$config\n';
   }
 
+  _SanitizedConfig _sanitizeOpenVpnConfig(String config) {
+    var working = config.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    String? username;
+    String? password;
+
+    final authBlockPattern = RegExp(
+      r'<auth-user-pass>(.*?)</auth-user-pass>',
+      dotAll: true,
+      caseSensitive: false,
+    );
+
+    final match = authBlockPattern.firstMatch(working);
+    if (match != null) {
+      final blockContent = match.group(1) ?? '';
+      final credentials = blockContent
+          .split(RegExp(r'\r?\n'))
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .toList();
+
+      if (credentials.isNotEmpty) {
+        username = credentials[0];
+      }
+      if (credentials.length > 1) {
+        password = credentials[1];
+      }
+
+      working = working.replaceRange(match.start, match.end, '');
+    }
+
+    working = working.replaceAll(authBlockPattern, '');
+
+    final authLinePattern =
+        RegExp(r'^\s*auth-user-pass(?:\s+.+)?\s*$', multiLine: true);
+
+    var foundDirective = false;
+    working = working.replaceAllMapped(authLinePattern, (match) {
+      if (foundDirective) {
+        return '';
+      }
+      foundDirective = true;
+      return 'auth-user-pass';
+    });
+
+    if (!foundDirective) {
+      working = working.trimRight();
+      if (working.isNotEmpty && !working.endsWith('\n')) {
+        working += '\n';
+      }
+      working += 'auth-user-pass\n';
+    }
+
+    final normalized = _ensureTrailingNewline(working.trimRight());
+
+    return _SanitizedConfig(
+      config: normalized,
+      username: username,
+      password: password,
+    );
+  }
+
   model.VpnStatus? _lastStatus;
 }
+ 
+class _SanitizedConfig {
+  const _SanitizedConfig({
+    required this.config,
+    this.username,
+    this.password,
+  });
 
-String _ensureAuthUserPassDirective(String config) {
-  final authBlockPattern =
-      RegExp(r'<auth-user-pass>.*?</auth-user-pass>', dotAll: true, caseSensitive: false);
-  final stripped = config.replaceAll(authBlockPattern, '').trimRight();
-  final authLinePattern = RegExp(r'^\s*auth-user-pass(?:\s+.+)?\s*$', multiLine: true);
-
-  if (authLinePattern.hasMatch(stripped)) {
-    return stripped.replaceFirst(authLinePattern, 'auth-user-pass');
-  }
-
-  final buffer = StringBuffer(stripped);
-  if (!stripped.endsWith('\n')) {
-    buffer.write('\n');
-  }
-  buffer
-    ..write('auth-user-pass')
-    ..write('\n');
-  return buffer.toString();
+  final String config;
+  final String? username;
+  final String? password;
 }
-
