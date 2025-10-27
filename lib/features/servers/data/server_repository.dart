@@ -36,7 +36,7 @@ class ServerRepository {
   final VpnGateApi _vpnGateApi;
   final PrefsStore? _prefs;
 
-  static const _cacheKey = 'servers_v1';
+  static const _cacheKey = 'servers_v2';
 
   Future<List<Server>> loadServers() async {
     developer.log('🔵 ServerRepository.loadServers() called', name: 'ServerRepository');
@@ -103,7 +103,42 @@ class ServerRepository {
 
   /// Convert VPN Gate records to Server objects
   List<Server> _convertVpnGateRecords(List<VpnGateRecord> records) {
-    return records.map((record) {
+    final servers = <Server>[];
+    var skippedInvalidConfigs = 0;
+
+    for (final record in records) {
+      final rawConfig = record.openVpnConfig.trim();
+      if (rawConfig.isEmpty) {
+        skippedInvalidConfigs++;
+        developer.log(
+          '⏭️ Skipping ${record.hostName}/${record.ip}: empty OpenVPN config',
+          name: 'ServerRepository',
+        );
+        continue;
+      }
+
+      final normalizedConfig = base64.normalize(rawConfig);
+      try {
+        final decoded = base64.decode(normalizedConfig);
+        if (decoded.isEmpty) {
+          skippedInvalidConfigs++;
+          developer.log(
+            '⏭️ Skipping ${record.hostName}/${record.ip}: decoded config was empty',
+            name: 'ServerRepository',
+          );
+          continue;
+        }
+      } catch (error, stackTrace) {
+        skippedInvalidConfigs++;
+        developer.log(
+          '⏭️ Skipping ${record.hostName}/${record.ip}: invalid OpenVPN config',
+          name: 'ServerRepository',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        continue;
+      }
+
       final rawSlug = record.hostName.isNotEmpty
           ? record.hostName.replaceAll('.', '-')
           : record.ip.replaceAll(RegExp(r'[.:]'), '-');
@@ -111,28 +146,39 @@ class ServerRepository {
       final displayName = record.hostName.isNotEmpty
           ? '${record.countryLong} • ${record.hostName}'
           : '${record.countryLong} • ${record.ip}';
-      final config = record.openVpnConfig.trim();
-      return Server(
-        id: 'vpngate-${record.countryShort.toLowerCase()}-$hostSlug',
-        name: displayName,
-        countryCode: record.countryShort,
-        countryName: record.countryLong,
-        publicKey: 'openvpn',
-        endpoint: '${record.ip}:1194',
-        allowedIps: '0.0.0.0/0, ::/0',
-        hostName: record.hostName,
-        ip: record.ip,
-        pingMs: record.pingMs,
-        bandwidth: record.speed,
-        downloadSpeed: record.speed,
-        uploadSpeed: record.speed,
-        sessions: record.sessions,
-        openVpnConfigDataBase64: config,
-        regionName: record.regionName,
-        cityName: record.city,
-        score: record.score,
+
+      servers.add(
+        Server(
+          id: 'vpngate-${record.countryShort.toLowerCase()}-$hostSlug',
+          name: displayName,
+          countryCode: record.countryShort,
+          countryName: record.countryLong,
+          publicKey: 'openvpn',
+          endpoint: '${record.ip}:1194',
+          allowedIps: '0.0.0.0/0, ::/0',
+          hostName: record.hostName,
+          ip: record.ip,
+          pingMs: record.pingMs,
+          bandwidth: record.speed,
+          downloadSpeed: record.speed,
+          uploadSpeed: record.speed,
+          sessions: record.sessions,
+          openVpnConfigDataBase64: normalizedConfig,
+          regionName: record.regionName,
+          cityName: record.city,
+          score: record.score,
+        ),
       );
-    }).toList();
+    }
+
+    if (skippedInvalidConfigs > 0) {
+      developer.log(
+        '⚠️ Skipped $skippedInvalidConfigs VPN Gate records due to invalid configs',
+        name: 'ServerRepository',
+      );
+    }
+
+    return servers;
   }
 
   Future<List<Server>> _loadCachedServers() async {

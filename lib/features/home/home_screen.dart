@@ -148,23 +148,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     BoxConstraints constraints,
     List<Server> servers,
   ) {
-    var height = 260.0;
+    var height = 288.0;
     if (servers.any(_serverHasDistinctIpLine)) {
-      height += 18;
+      height += 20;
     }
     if (servers.any((server) => server.sessions != null)) {
-      height += 24;
+      height += 18;
     }
-    if (constraints.maxWidth < 380) {
-      height += 24;
+    if (constraints.maxWidth < 360) {
+      height += 28;
+    } else if (constraints.maxWidth < 420) {
+      height += 12;
     }
-    if (height < 260) {
-      height = 260;
-    }
-    if (height > 340) {
-      height = 340;
-    }
-    return height;
+    return height.clamp(288.0, 360.0).toDouble();
   }
 
   bool _serverHasDistinctIpLine(Server server) {
@@ -868,7 +864,7 @@ class _ServerCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
@@ -887,7 +883,7 @@ class _ServerCard extends StatelessWidget {
                     ],
                   ),
                   if (sessionsValue != null) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
                       l10n.serverSessionsLabel(sessionsValue),
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -895,7 +891,7 @@ class _ServerCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -957,7 +953,7 @@ class _MetricTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceVariant.withOpacity(0.35),
         borderRadius: BorderRadius.circular(14),
