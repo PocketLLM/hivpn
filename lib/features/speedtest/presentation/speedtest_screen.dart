@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme/colors.dart';
 import '../domain/speedtest_controller.dart';
 import '../domain/speedtest_state.dart';
+import 'widgets/speed_gauge.dart';
 
 class SpeedTestScreen extends ConsumerWidget {
   const SpeedTestScreen({super.key});
@@ -57,10 +58,10 @@ class SpeedTestScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 28),
                     SpeedGauge(
-                      value: state.gaugeValue,
-                      label: gaugeLabel,
                       speed: state.downloadMbps,
-                      status: state.status,
+                      statusLabel: gaugeLabel,
+                      title: 'Download',
+                      maxValue: 100,
                     ),
                     const SizedBox(height: 20),
                     FilledButton.icon(
@@ -95,6 +96,13 @@ class SpeedTestScreen extends ConsumerWidget {
                           color: theme.colorScheme.onSurface.withOpacity(0.7),
                         ),
                         textAlign: TextAlign.center,
+                      ),
+                    ],
+                    if (state.status == SpeedTestStatus.complete && state.downloadMbps <= 0) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Run test to get values',
+                        style: theme.textTheme.bodySmall,
                       ),
                     ],
                     if (state.errorMessage != null) ...[
@@ -500,170 +508,3 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-class SpeedGauge extends StatefulWidget {
-  const SpeedGauge({
-    super.key,
-    required this.value,
-    required this.label,
-    required this.speed,
-    required this.status,
-    this.maxMbps = 200,
-  });
-
-  final double value;
-  final double speed;
-  final double maxMbps;
-  final String label;
-  final SpeedTestStatus status;
-
-  @override
-  State<SpeedGauge> createState() => _SpeedGaugeState();
-}
-
-class _SpeedGaugeState extends State<SpeedGauge> {
-  double _previousValue = 0;
-  double _previousSpeed = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _previousValue = widget.value.clamp(0, 1);
-    _previousSpeed = widget.speed;
-  }
-
-  @override
-  void didUpdateWidget(covariant SpeedGauge oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _previousValue = oldWidget.value.clamp(0, 1);
-    _previousSpeed = oldWidget.speed;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final normalizedEnd = widget.value.clamp(0, 1).toDouble();
-    return SizedBox(
-      width: 240,
-      height: 240,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: _previousValue, end: normalizedEnd),
-        duration: const Duration(milliseconds: 700),
-        curve: Curves.easeOutCubic,
-        builder: (context, animated, child) {
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      theme.colorScheme.primary.withOpacity(0.28),
-                      Colors.white.withOpacity(0.1),
-                    ],
-                  ),
-                ),
-              ),
-              CustomPaint(
-                size: const Size.square(220),
-                painter: _GaugePainter(animated),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: _previousSpeed, end: widget.speed),
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, animatedSpeed, child) {
-                      final display = animatedSpeed <= 0
-                          ? '--'
-                          : animatedSpeed.clamp(0, widget.maxMbps).toStringAsFixed(1);
-                      return Text(
-                        display,
-                        style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w700),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 4),
-                  Text('Mbps', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: HiVpnColors.surface.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 250),
-                      child: Text(
-                        widget.label,
-                        key: ValueKey(widget.label),
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
-                  ),
-                  if (widget.status == SpeedTestStatus.complete && widget.speed <= 0)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        'Run test to get values',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _GaugePainter extends CustomPainter {
-  _GaugePainter(this.value);
-
-  final double value;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 8;
-    final backgroundPaint = Paint()
-      ..color = Colors.white10
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 12
-      ..strokeCap = StrokeCap.round;
-    final progressPaint = Paint()
-      ..shader = const SweepGradient(
-        startAngle: -3.14 / 2,
-        endAngle: 3.14 / 2,
-        colors: [HiVpnColors.primary, HiVpnColors.accent],
-      ).createShader(Rect.fromCircle(center: center, radius: radius))
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 12
-      ..strokeCap = StrokeCap.round;
-
-    final startAngle = -3.14 * 0.75;
-    final sweep = 3.14 * 1.5;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      startAngle,
-      sweep,
-      false,
-      backgroundPaint,
-    );
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      startAngle,
-      sweep * value.clamp(0, 1),
-      false,
-      progressPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _GaugePainter oldDelegate) => oldDelegate.value != value;
-}
