@@ -19,18 +19,11 @@ class SpeedTestScreen extends ConsumerWidget {
     final statusMessage = _statusDescription(state);
     final gaugeLabel = _gaugeLabel(state);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            theme.colorScheme.primary.withOpacity(0.08),
-            Colors.white,
-          ],
-        ),
-      ),
-      child: SafeArea(
+    final gradients = _MetricGradients(theme);
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 32, 24, 160),
           children: [
@@ -57,105 +50,23 @@ class SpeedTestScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 28),
-                    SpeedGauge(
-                      speed: state.downloadMbps,
-                      statusLabel: gaugeLabel,
-                      title: 'Download',
-                      maxValue: 100,
+                    _GaugePanel(
+                      state: state,
+                      gaugeLabel: gaugeLabel,
+                      buttonInfo: buttonInfo,
+                      onRun: buttonInfo.enabled ? () => controller.run() : null,
                     ),
-                    const SizedBox(height: 20),
-                    FilledButton.icon(
-                      onPressed: buttonInfo.enabled ? () => controller.run() : null,
-                      icon: Icon(buttonInfo.icon),
-                      label: Text(buttonInfo.label),
-                    ),
-                    if (state.status == SpeedTestStatus.preparing) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2.5),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Checking latency and allocating servers…',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(0.7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ] else if (state.status == SpeedTestStatus.running) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        'Collecting download and upload samples…',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.7),
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                    if (state.status == SpeedTestStatus.complete && state.downloadMbps <= 0) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Run test to get values',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
                     if (state.errorMessage != null) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       _ErrorBanner(message: state.errorMessage!),
                     ],
                     const SizedBox(height: 28),
                     AnimatedOpacity(
                       duration: const Duration(milliseconds: 250),
                       opacity: state.isBusy ? 0.6 : 1,
-                      child: Wrap(
-                        spacing: 16,
-                        runSpacing: 16,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          _MetricCard(
-                            title: 'Download',
-                            value: state.downloadMbps > 0
-                                ? '${state.downloadMbps.toStringAsFixed(1)} Mbps'
-                                : (state.isBusy ? 'Measuring…' : '--'),
-                            icon: Icons.download_rounded,
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                theme.colorScheme.primary.withOpacity(0.18),
-                                theme.colorScheme.secondary.withOpacity(0.12),
-                                Colors.white,
-                              ],
-                            ),
-                          ),
-                          _MetricCard(
-                            title: 'Upload',
-                            value: state.uploadSeries.isEmpty && !state.hasResult
-                                ? (state.isBusy ? 'Pending…' : '--')
-                                : '${state.uploadMbps.toStringAsFixed(1)} Mbps',
-                            icon: Icons.upload_rounded,
-                          ),
-                          _MetricCard(
-                            title: 'Ping',
-                            value: state.ping != null
-                                ? '${state.ping!.inMilliseconds} ms'
-                                : (state.isBusy ? 'Measuring…' : '--'),
-                            icon: Icons.podcasts,
-                          ),
-                          _MetricCard(
-                            title: 'IP',
-                            value: state.ip != null && state.ip!.isNotEmpty
-                                ? state.ip!
-                                : (state.isBusy ? 'Detecting…' : 'Not available'),
-                            icon: Icons.language,
-                          ),
-                        ],
+                      child: _MetricGrid(
+                        gradients: gradients,
+                        state: state,
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -177,6 +88,221 @@ class SpeedTestScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _GaugePanel extends StatelessWidget {
+  const _GaugePanel({
+    required this.state,
+    required this.gaugeLabel,
+    required this.buttonInfo,
+    this.onRun,
+  });
+
+  final SpeedTestState state;
+  final String gaugeLabel;
+  final _PrimaryButtonInfo buttonInfo;
+  final VoidCallback? onRun;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            theme.colorScheme.primary.withOpacity(0.08),
+            theme.colorScheme.primary.withOpacity(0.02),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: SpeedGauge(
+              speed: state.downloadMbps,
+              statusLabel: gaugeLabel,
+              title: 'Download',
+              maxValue: 100,
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onRun,
+              icon: Icon(buttonInfo.icon),
+              label: Text(buttonInfo.label),
+            ),
+          ),
+          if (state.status == SpeedTestStatus.preparing) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Checking latency and allocating servers…',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (state.status == SpeedTestStatus.running) ...[
+            const SizedBox(height: 14),
+            Text(
+              'Collecting download and upload samples…',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ] else if (state.status == SpeedTestStatus.complete && state.downloadMbps <= 0) ...[
+            const SizedBox(height: 14),
+            Text(
+              'Run test to get values',
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricGrid extends StatelessWidget {
+  const _MetricGrid({required this.gradients, required this.state});
+
+  final _MetricGradients gradients;
+  final SpeedTestState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final isTwoColumn = maxWidth >= 460;
+        final itemWidth = isTwoColumn ? (maxWidth - 16) / 2 : maxWidth;
+
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          alignment: WrapAlignment.center,
+          children: [
+            SizedBox(
+              width: itemWidth,
+              child: _MetricCard(
+                title: 'Download',
+                value: state.downloadMbps > 0
+                    ? '${state.downloadMbps.toStringAsFixed(1)} Mbps'
+                    : (state.isBusy ? 'Measuring…' : '--'),
+                icon: Icons.download_rounded,
+                gradient: gradients.primary,
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _MetricCard(
+                title: 'Upload',
+                value: state.uploadSeries.isEmpty && !state.hasResult
+                    ? (state.isBusy ? 'Pending…' : '--')
+                    : '${state.uploadMbps.toStringAsFixed(1)} Mbps',
+                icon: Icons.upload_rounded,
+                gradient: gradients.secondary,
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _MetricCard(
+                title: 'Ping',
+                value: state.ping != null
+                    ? '${state.ping!.inMilliseconds} ms'
+                    : (state.isBusy ? 'Measuring…' : '--'),
+                icon: Icons.podcasts,
+                gradient: gradients.tertiary,
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _MetricCard(
+                title: 'IP',
+                value: state.ip != null && state.ip!.isNotEmpty
+                    ? state.ip!
+                    : (state.isBusy ? 'Detecting…' : 'Not available'),
+                icon: Icons.language,
+                gradient: gradients.quaternary,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MetricGradients {
+  _MetricGradients(ThemeData theme)
+      : primary = LinearGradient(
+          colors: [
+            theme.colorScheme.primary.withOpacity(0.18),
+            theme.colorScheme.secondary.withOpacity(0.12),
+            Colors.white,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        secondary = LinearGradient(
+          colors: [
+            HiVpnColors.accent.withOpacity(0.16),
+            theme.colorScheme.primary.withOpacity(0.06),
+            Colors.white,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        tertiary = LinearGradient(
+          colors: [
+            HiVpnColors.info.withOpacity(0.16),
+            HiVpnColors.primary.withOpacity(0.05),
+            Colors.white,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        quaternary = LinearGradient(
+          colors: [
+            theme.colorScheme.secondary.withOpacity(0.14),
+            theme.colorScheme.primary.withOpacity(0.05),
+            Colors.white,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+
+  final Gradient primary;
+  final Gradient secondary;
+  final Gradient tertiary;
+  final Gradient quaternary;
 }
 
 String _statusDescription(SpeedTestState state) {
@@ -463,8 +589,8 @@ class _MetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      width: 150,
-      padding: const EdgeInsets.all(18),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
       decoration: BoxDecoration(
         gradient: gradient,
         color: gradient == null ? theme.colorScheme.surface : null,
@@ -483,12 +609,19 @@ class _MetricCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.1),
+              gradient: LinearGradient(
+                colors: [
+                  theme.colorScheme.primary.withOpacity(0.18),
+                  theme.colorScheme.primary.withOpacity(0.08),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: theme.colorScheme.primary),
+            child: Icon(icon, color: theme.colorScheme.onPrimary, size: 20),
           ),
           const SizedBox(height: 14),
           Text(
