@@ -60,6 +60,7 @@ flutter_launcher_icons:
       android: "launcher_icon"
       ios: true
       image_path: "assets/icons/appicon.png"
+      # run -> flutter pub run flutter_launcher_icons:main
       # Optional: Add configurations for other platforms like web, windows, macos
       # web:
       #   generate: true
