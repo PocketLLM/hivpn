@@ -125,9 +125,14 @@ class OpenVpnPort implements VpnPort {
       }
 
       final sanitizedConfig = _ensureTrailingNewline(configText);
+      final configWithCredentials = _ensureInlineCredentials(
+        sanitizedConfig,
+        username: 'vpn',
+        password: 'vpn',
+      );
 
       final config = VpnConfig(
-        config: sanitizedConfig,
+        config: configWithCredentials,
         country: server.countryLong,
         username: 'vpn',
         password: 'vpn',
@@ -201,6 +206,46 @@ class OpenVpnPort implements VpnPort {
       return config;
     }
     return '$config\n';
+  }
+
+  String _ensureInlineCredentials(
+    String config, {
+    required String username,
+    required String password,
+  }) {
+    final authBlockPattern =
+        RegExp(r'<auth-user-pass>.*?</auth-user-pass>', dotAll: true);
+    if (authBlockPattern.hasMatch(config)) {
+      return config;
+    }
+
+    final sanitizedUsername = username.replaceAll('\n', '').trim();
+    final sanitizedPassword = password.replaceAll('\n', '').trim();
+    final credentialsBlock = [
+      '<auth-user-pass>',
+      sanitizedUsername,
+      sanitizedPassword,
+      '</auth-user-pass>',
+    ].join('\n');
+
+    final authLinePattern = RegExp(r'^\s*auth-user-pass.*$', multiLine: true);
+    if (authLinePattern.hasMatch(config)) {
+      final replacement = [
+        'auth-user-pass',
+        credentialsBlock,
+      ].join('\n');
+      return config.replaceFirst(
+        authLinePattern,
+        '$replacement\n',
+      );
+    }
+
+    return [
+      config.trimRight(),
+      'auth-user-pass',
+      credentialsBlock,
+      '',
+    ].join('\n');
   }
 
   model.VpnStatus? _lastStatus;
