@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 import 'package:openvpn_flutter/openvpn_flutter.dart';
 
 import '../../core/errors/app_error.dart';
@@ -205,7 +206,7 @@ class OpenVpnPort implements VpnPort {
     return '$config\n';
   }
 
-  _SanitizedConfig _sanitizeOpenVpnConfig(String config) {
+  SanitizedOpenVpnConfig _sanitizeOpenVpnConfig(String config) {
     var working = config.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
     String? username;
     String? password;
@@ -237,8 +238,10 @@ class OpenVpnPort implements VpnPort {
 
     working = working.replaceAll(authBlockPattern, '');
 
-    final authLinePattern =
-        RegExp(r'^\s*auth-user-pass(?:\s+.+)?\s*$', multiLine: true);
+    final authLinePattern = RegExp(
+      r'^\s*auth-user-pass(?:[ \t]+[^\r\n]+)?\s*$',
+      multiLine: true,
+    );
 
     var foundDirective = false;
     working = working.replaceAllMapped(authLinePattern, (match) {
@@ -259,18 +262,23 @@ class OpenVpnPort implements VpnPort {
 
     final normalized = _ensureTrailingNewline(working.trimRight());
 
-    return _SanitizedConfig(
+    return SanitizedOpenVpnConfig(
       config: normalized,
       username: username,
       password: password,
     );
   }
 
+  @visibleForTesting
+  SanitizedOpenVpnConfig debugSanitizeOpenVpnConfig(String config) {
+    return _sanitizeOpenVpnConfig(config);
+  }
+
   model.VpnStatus? _lastStatus;
 }
- 
-class _SanitizedConfig {
-  const _SanitizedConfig({
+
+class SanitizedOpenVpnConfig {
+  const SanitizedOpenVpnConfig({
     required this.config,
     this.username,
     this.password,
