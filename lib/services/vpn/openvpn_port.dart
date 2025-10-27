@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:openvpn_flutter/openvpn_flutter.dart';
 
+import '../../core/errors/app_error.dart';
 import 'models/vpn.dart';
 import 'models/vpn_config.dart';
 import 'models/vpn_status.dart' as model;
@@ -107,9 +108,18 @@ class OpenVpnPort implements VpnPort {
 
       _currentServer = server;
 
-      final configText = server.openVpnConfig.trim();
+      late final String configText;
+      try {
+        configText = server.openVpnConfig.trim();
+      } on AppError catch (error) {
+        debugPrint('[OpenVpnPort] Invalid OpenVPN config: $error');
+        _stageController.add(VPNStage.error);
+        return false;
+      }
+
       if (configText.isEmpty) {
-        print('Error: Empty OpenVPN config for ${server.countryLong}');
+        debugPrint(
+            '[OpenVpnPort] Error: Empty OpenVPN config for ${server.countryLong}');
         _stageController.add(VPNStage.error);
         return false;
       }

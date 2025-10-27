@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../../../core/errors/app_error.dart';
+
 /// VPN server model from VPN Gate API
 class Vpn {
   final String hostName;
@@ -50,11 +52,30 @@ class Vpn {
 
   /// Get decoded OpenVPN config
   String get openVpnConfig {
+    final raw = openVpnConfigDataBase64.trim();
+    if (raw.isEmpty) {
+      throw const AppError('OpenVPN configuration is missing.');
+    }
+
     try {
-      final normalized = base64.normalize(openVpnConfigDataBase64.trim());
-      return utf8.decode(base64.decode(normalized));
-    } catch (e) {
-      return '';
+      final normalized = base64.normalize(raw);
+      final decodedBytes = base64.decode(normalized);
+      if (decodedBytes.isEmpty) {
+        throw const FormatException('Decoded OpenVPN config is empty.');
+      }
+
+      final decoded = utf8.decode(decodedBytes);
+      if (decoded.trim().isEmpty) {
+        throw const FormatException('Decoded OpenVPN config is empty.');
+      }
+
+      return decoded;
+    } on AppError {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppError('Failed to decode OpenVPN configuration.', cause: error);
+    } catch (error) {
+      throw AppError('Failed to decode OpenVPN configuration.', cause: error);
     }
   }
 
