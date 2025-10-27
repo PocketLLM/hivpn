@@ -125,7 +125,6 @@ class OpenVpnPort implements VpnPort {
         username: config.username,
         password: config.password,
         certIsRequired: false,
-        bypassCache: true,
       );
 
       return true;
