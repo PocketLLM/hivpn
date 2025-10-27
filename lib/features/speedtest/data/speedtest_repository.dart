@@ -24,12 +24,8 @@ class SpeedTestRepository {
   Future<SpeedTestConfig> load() async {
     // Use default endpoints from flutter_speed_test_plus
     // The library uses Fast.com API by default which is reliable
-    final downloads = [
-      Uri.parse('https://fast.com/'),
-    ];
-    final uploads = [
-      Uri.parse('https://fast.com/'),
-    ];
+    final downloads = <Uri>[]; // Use Fast.com defaults from the plugin
+    final uploads = <Uri>[]; // Use Fast.com defaults from the plugin
     final pings = [
       Uri.parse('https://fast.com/'),
     ];

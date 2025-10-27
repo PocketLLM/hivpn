@@ -39,7 +39,8 @@ class ServerTile extends StatelessWidget {
     final locationLabel = locationSegments.isNotEmpty
         ? locationSegments.join(' • ')
         : '${l10n.locations}: ${server.countryCode.toUpperCase()}';
-    final pingText = server.pingMs != null ? '${server.pingMs} ms' : '--';
+    final pingValue = latencyMs ?? server.pingMs;
+    final pingText = (pingValue != null && pingValue < 9999) ? '$pingValue ms' : '--';
     final downloadValue = server.downloadSpeed ?? server.bandwidth;
     final uploadValue = server.uploadSpeed ?? downloadValue;
     final downloadText =
