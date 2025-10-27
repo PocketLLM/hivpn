@@ -16,6 +16,7 @@ import '../../../services/vpn/vpn_provider.dart';
 import '../../home/home_screen.dart';
 import '../../servers/domain/server.dart';
 import '../../servers/domain/server_catalog_controller.dart';
+import '../../servers/domain/server_providers.dart';
 import '../../session/domain/session_controller.dart';
 import '../../session/domain/session_state.dart';
 import '../../session/domain/session_status.dart';
@@ -351,7 +352,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     'HiVPN connects to public VPNGate relays so you can reach open servers worldwide.',
               ),
               _DiagramStep(
-                icon: Icons.tunnel,
+                icon: Icons.vpn_lock,
                 title: 'Encrypted tunnel',
                 description:
                     'Your traffic flows through an encrypted OpenVPN tunnel before heading to the internet.',
