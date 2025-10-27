@@ -7,6 +7,27 @@ import '../domain/server.dart';
 import 'vpngate_api.dart';
 import '../../../services/storage/prefs.dart';
 
+class ServerRepositoryException implements Exception {
+  ServerRepositoryException({
+    required this.message,
+    this.cause,
+    this.stackTrace,
+  });
+
+  final String message;
+  final Object? cause;
+  final StackTrace? stackTrace;
+
+  @override
+  String toString() {
+    final buffer = StringBuffer('ServerRepositoryException: $message');
+    if (cause != null) {
+      buffer.write(' (cause: $cause)');
+    }
+    return buffer.toString();
+  }
+}
+
 class ServerRepository {
   ServerRepository({required VpnGateApi vpnGateApi, PrefsStore? prefs})
       : _vpnGateApi = vpnGateApi,
@@ -26,25 +47,57 @@ class ServerRepository {
     try {
       developer.log('🔵 Fetching from VPN Gate API...', name: 'ServerRepository');
       final remoteServers = await _vpnGateApi.fetchServers();
-      developer.log('✅ Received ${remoteServers.length} VPN entries from API', name: 'ServerRepository');
+      developer.log('✅ Received ${remoteServers.length} VPN entries from API',
+          name: 'ServerRepository');
 
       if (remoteServers.isEmpty) {
-        developer.log('⚠️ Remote catalogue empty, using cached servers', name: 'ServerRepository');
-        return cached;
+        developer.log('⚠️ Remote catalogue returned zero entries',
+            name: 'ServerRepository');
+        if (cached.isNotEmpty) {
+          developer.log('ℹ️ Falling back to ${cached.length} cached servers',
+              name: 'ServerRepository');
+          return cached;
+        }
+        throw ServerRepositoryException(
+          message: 'VPN Gate returned zero servers',
+        );
       }
 
       // Convert VPN Gate records directly to Server objects
       final servers = _convertVpnGateRecords(remoteServers);
-      developer.log('✅ Converted to ${servers.length} Server objects', name: 'ServerRepository');
+      developer.log('✅ Converted to ${servers.length} Server objects',
+          name: 'ServerRepository');
 
       await _saveCache(servers);
       return servers;
+    } on VpnGateCatalogueException catch (error, stackTrace) {
+      developer.log('❌ VPN Gate catalogue error: $error',
+          name: 'ServerRepository', error: error, stackTrace: stackTrace);
+      if (cached.isNotEmpty) {
+        developer.log('ℹ️ Falling back to ${cached.length} cached servers',
+            name: 'ServerRepository');
+        return cached;
+      }
+      throw ServerRepositoryException(
+        message: error.message,
+        cause: error.cause,
+        stackTrace: stackTrace,
+      );
     } catch (error, stackTrace) {
       developer.log('❌ Failed to fetch from API: $error',
           name: 'ServerRepository', error: error, stackTrace: stackTrace);
       print('❌ ServerRepository Error: $error');
       print('❌ StackTrace: $stackTrace');
-      return cached;
+      if (cached.isNotEmpty) {
+        developer.log('ℹ️ Falling back to ${cached.length} cached servers',
+            name: 'ServerRepository');
+        return cached;
+      }
+      throw ServerRepositoryException(
+        message: 'Failed to load VPN servers',
+        cause: error,
+        stackTrace: stackTrace,
+      );
     }
   }
 

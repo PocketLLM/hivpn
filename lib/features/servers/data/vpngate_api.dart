@@ -5,6 +5,36 @@ import 'package:csv/csv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+class VpnGateCatalogueException implements Exception {
+  const VpnGateCatalogueException(this.message, {this.uri, this.cause});
+
+  final String message;
+  final Uri? uri;
+  final Object? cause;
+
+  @override
+  String toString() {
+    final buffer = StringBuffer('VpnGateCatalogueException: $message');
+    if (uri != null) {
+      buffer.write(' (uri: $uri)');
+    }
+    if (cause != null) {
+      buffer.write(' cause=$cause');
+    }
+    return buffer.toString();
+  }
+}
+
+class VpnGateDomainForbiddenException extends VpnGateCatalogueException {
+  const VpnGateDomainForbiddenException({required Uri uri, required this.snippet})
+      : super('Domain forbidden', uri: uri);
+
+  final String snippet;
+
+  @override
+  String toString() => '${super.toString()} snippet=${snippet.trim()}';
+}
+
 class VpnGateRecord {
   const VpnGateRecord({
     required this.hostName,
@@ -73,13 +103,20 @@ class VpnGateRecord {
 class VpnGateApi {
   VpnGateApi({http.Client? client}) : _client = client ?? http.Client();
 
-  static const _endpoint = 'http://www.vpngate.net/api/iphone/';
-  static const _fallbackEndpoint = 'https://www.vpngate.net/api/iphone/';
+  static const _baseEndpoints = <String>{
+    'https://www.vpngate.net/api/iphone/',
+    'http://www.vpngate.net/api/iphone/',
+    'https://vpngate.net/api/iphone/',
+    'http://vpngate.net/api/iphone/',
+    'https://global.vpngate.net/api/iphone/',
+    'http://global.vpngate.net/api/iphone/',
+  };
   static const _defaultHeaders = {
     'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
     'Accept': 'text/plain,application/json;q=0.9,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate',
     'Connection': 'keep-alive',
     'Referer': 'http://www.vpngate.net/',
   };
@@ -94,7 +131,7 @@ class VpnGateApi {
 
       if (body.isEmpty) {
         developer.log('❌ Catalogue is empty', name: 'VpnGateApi');
-        return const [];
+        throw const VpnGateCatalogueException('VPN Gate returned an empty catalogue');
       }
 
       final segments = body.split('#');
@@ -102,34 +139,56 @@ class VpnGateApi {
 
       if (segments.length < 2) {
         developer.log('❌ Not enough segments (need at least 2)', name: 'VpnGateApi');
-        return const [];
+        throw const VpnGateCatalogueException('VPN Gate response missing CSV segment');
       }
 
       final csvString = segments[1].replaceAll('*', '');
       developer.log('📄 CSV string length: ${csvString.length}', name: 'VpnGateApi');
 
       if (csvString.contains('Domain forbidden')) {
-        developer.log('⛔️ Catalogue response indicates domain forbidden',
+        developer.log('⛔️ Catalogue response indicates domain forbidden in CSV segment',
             name: 'VpnGateApi');
-        return const [];
+        throw const VpnGateCatalogueException(
+          'Domain forbidden in CSV segment',
+        );
       }
 
       final cleanedCsv = csvString.trim();
-      final rows = const CsvToListConverter(eol: '\n').convert(cleanedCsv);
+      final rows = const CsvToListConverter(
+        eol: '\n',
+        shouldParseNumbers: false,
+      ).convert(cleanedCsv);
       developer.log('📋 Parsed ${rows.length} rows from CSV', name: 'VpnGateApi');
 
       if (rows.length <= 1) {
         developer.log('❌ Not enough rows (need more than 1)', name: 'VpnGateApi');
-        return const [];
+        throw const VpnGateCatalogueException('VPN Gate CSV did not contain server rows');
       }
 
-      final header = rows.first.map((value) => value.toString()).toList();
+      final header = rows.first
+          .map((value) => value.toString().trim())
+          .toList(growable: false);
       developer.log('🔑 Header: $header', name: 'VpnGateApi');
 
       final records = <VpnGateRecord>[];
+      var skippedEmptyConfig = 0;
+      var skippedMalformed = 0;
       for (var i = 1; i < rows.length; i++) {
         final row = rows[i];
-        if (row.isEmpty || row.length != header.length) {
+        if (row.isEmpty ||
+            row.every(
+              (value) =>
+                  value == null || value.toString().trim().isEmpty,
+            )) {
+          skippedMalformed++;
+          continue;
+        }
+        if (row.length != header.length) {
+          skippedMalformed++;
+          developer.log(
+            '⚠️ Row $i length mismatch: rowLen=${row.length} headerLen=${header.length}',
+            name: 'VpnGateApi',
+          );
           continue;
         }
         final map = <String, dynamic>{};
@@ -140,17 +199,32 @@ class VpnGateApi {
         final ip = map['IP']?.toString() ?? '';
         final config = map['OpenVPN_ConfigData_Base64']?.toString() ?? '';
         if ((host.isEmpty && ip.isEmpty) || config.isEmpty) {
-          developer.log('⏭️ Skipping row $i: host=$host, ip=$ip, config_len=${config.length}', name: 'VpnGateApi');
+          skippedEmptyConfig++;
+          developer.log(
+            '⏭️ Skipping row $i: host=$host, ip=$ip, config_len=${config.length}',
+            name: 'VpnGateApi',
+          );
           continue;
         }
         records.add(VpnGateRecord.fromMap(map));
       }
-      developer.log('✅ VPNGate catalogue parsed: ${records.length} records',
-          name: 'VpnGateApi');
+      developer.log(
+        '✅ VPNGate catalogue parsed: ${records.length} records (skippedEmptyConfig=$skippedEmptyConfig, skippedMalformed=$skippedMalformed)',
+        name: 'VpnGateApi',
+      );
+
+      if (records.isEmpty) {
+        throw const VpnGateCatalogueException('Parsed zero usable VPN Gate servers');
+      }
       return records;
+    } on VpnGateCatalogueException {
+      rethrow;
     } catch (e, st) {
       developer.log('❌ fetchServers() failed: $e', name: 'VpnGateApi', error: e, stackTrace: st);
-      return const [];
+      throw VpnGateCatalogueException(
+        'Failed to parse VPN Gate catalogue',
+        cause: e,
+      );
     }
   }
 
@@ -176,12 +250,17 @@ class VpnGateApi {
             uri,
           );
         }
-        final decoded = const Utf8Decoder().convert(response.bodyBytes);
+        final decoded = const Utf8Decoder(allowMalformed: true)
+            .convert(response.bodyBytes);
+        final snippet = decoded.substring(0, decoded.length > 200 ? 200 : decoded.length);
+        developer.log('🧾 Response preview: ${snippet.replaceAll('\n', ' ')}', name: 'VpnGateApi');
         if (decoded.contains('Domain forbidden')) {
           developer.log('⛔️ Response body reports domain forbidden',
               name: 'VpnGateApi');
+          throw VpnGateDomainForbiddenException(uri: uri, snippet: snippet);
         }
-        developer.log('✅ Successfully decoded response: ${decoded.length} chars', name: 'VpnGateApi');
+        developer.log('✅ Successfully decoded response: ${decoded.length} chars',
+            name: 'VpnGateApi');
         return decoded;
       } catch (e, st) {
         developer.log('❌ tryFetch failed: $e', name: 'VpnGateApi', error: e, stackTrace: st);
@@ -190,24 +269,64 @@ class VpnGateApi {
     }
 
     try {
-      developer.log('🔗 Trying HTTP endpoint: $_endpoint', name: 'VpnGateApi');
-      final primary = await tryFetch(Uri.parse(_endpoint));
-      if (primary.contains('Domain forbidden')) {
-        developer.log('⚠️ HTTP endpoint blocked, retrying with HTTPS',
-            name: 'VpnGateApi');
-        final fallback = await tryFetch(Uri.parse(_fallbackEndpoint));
-        return fallback;
+      final attempts = <Uri>[];
+      final errors = <String>[];
+      for (final uri in _candidateUris()) {
+        attempts.add(uri);
+        developer.log('🔗 Trying endpoint: $uri', name: 'VpnGateApi');
+        try {
+          final body = await tryFetch(uri);
+          if (body.isEmpty) {
+            errors.add('Empty body from $uri');
+            continue;
+          }
+          return body;
+        } on VpnGateDomainForbiddenException catch (error) {
+          errors.add('${error.message} at ${error.uri}');
+          developer.log(
+            '⛔️ Domain forbidden at ${error.uri}. Snippet: ${error.snippet}',
+            name: 'VpnGateApi',
+          );
+          continue;
+        } on http.ClientException catch (error, stackTrace) {
+          errors.add('ClientException(${error.message}) at $uri');
+          developer.log('⚠️ ClientException for $uri: $error',
+              name: 'VpnGateApi', error: error, stackTrace: stackTrace);
+          continue;
+        } catch (error, stackTrace) {
+          errors.add('$error at $uri');
+          developer.log('⚠️ Unexpected error for $uri: $error',
+              name: 'VpnGateApi', error: error, stackTrace: stackTrace);
+          continue;
+        }
       }
-      return primary;
-    } on http.ClientException catch (error, stackTrace) {
-      developer.log('⚠️ HTTP fetch failed, retrying with HTTPS: $error',
-          name: 'VpnGateApi', error: error, stackTrace: stackTrace);
-      developer.log('🔗 Trying HTTPS endpoint: $_fallbackEndpoint', name: 'VpnGateApi');
-      return tryFetch(Uri.parse(_fallbackEndpoint));
+      throw VpnGateCatalogueException(
+        'All VPN Gate endpoints failed',
+        cause: errors,
+        uri: attempts.isNotEmpty ? attempts.last : null,
+      );
     } catch (error, stackTrace) {
       developer.log('❌ _downloadCatalogue failed completely: $error',
           name: 'VpnGateApi', error: error, stackTrace: stackTrace);
       rethrow;
+    }
+  }
+
+  Iterable<Uri> _candidateUris() sync* {
+    final nonce = DateTime.now().millisecondsSinceEpoch.toString();
+    final seen = <String>{};
+    for (final endpoint in _baseEndpoints) {
+      final base = Uri.parse(endpoint);
+      final withNonce = base.replace(queryParameters: {
+        ...base.queryParameters,
+        '_': nonce,
+      });
+      if (seen.add(withNonce.toString())) {
+        yield withNonce;
+      }
+      if (seen.add(base.toString())) {
+        yield base;
+      }
     }
   }
 }

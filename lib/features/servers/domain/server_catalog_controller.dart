@@ -106,6 +106,7 @@ class ServerCatalogController extends StateNotifier<ServerCatalogState> {
         unawaited(_measureLatency());
       });
     } catch (error, stackTrace) {
+      print('❌❌❌ ServerCatalogController._init error: $error');
       developer.log('❌ Error in _init()', name: 'ServerCatalogController', error: error, stackTrace: stackTrace);
       state = state.copyWith(
         isLoading: false,
@@ -183,6 +184,7 @@ class ServerCatalogController extends StateNotifier<ServerCatalogState> {
 
       await _measureLatency();
     } catch (error, stackTrace) {
+      print('❌❌❌ ServerCatalogController.refreshServers error: $error');
       developer.log('❌ Error refreshing servers', name: 'ServerCatalogController', error: error, stackTrace: stackTrace);
       state = state.copyWith(
         isLoading: false,
