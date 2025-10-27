@@ -45,6 +45,7 @@ dev_dependencies:
   flutter_gen_runner: ^5.3.2
   freezed: ^2.4.2
   json_serializable: ^6.7.1
+  flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
@@ -54,3 +55,16 @@ flutter:
     - assets/reference/
     - assets/CountryFlags/
     - assets/
+
+flutter_launcher_icons:
+      android: "launcher_icon"
+      ios: true
+      image_path: "assets/icons/appicon.png"
+      # Optional: Add configurations for other platforms like web, windows, macos
+      # web:
+      #   generate: true
+      #   image_path: "assets/icons/app_icon.png"
+      # windows:
+      #   generate: true
+      #   image_path: "assets/icons/app_icon.png"
+      #   icon_size: 48 # Example size
