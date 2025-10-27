@@ -110,6 +110,7 @@ class OpenVpnPort implements VpnPort {
       final configText = server.openVpnConfig.trim();
       if (configText.isEmpty) {
         print('Error: Empty OpenVPN config for ${server.countryLong}');
+        _stageController.add(VPNStage.error);
         return false;
       }
 
@@ -134,6 +135,8 @@ class OpenVpnPort implements VpnPort {
       return true;
     } catch (e) {
       debugPrint('[OpenVpnPort] Error connecting to VPN: $e');
+      _isConnected = false;
+      _stageController.add(VPNStage.error);
       return false;
     }
   }
