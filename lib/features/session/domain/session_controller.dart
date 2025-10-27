@@ -30,6 +30,7 @@ const _sessionMetaPrefsKey = 'session_meta_v1';
 const sessionDuration = Duration(hours: 1);
 const _dataLimitMessage = 'Monthly data limit reached.';
 const _extendDuration = Duration(hours: 1);
+const _connectionTimeoutDuration = Duration(seconds: 45);
 
 class SessionController extends StateNotifier<SessionState> {
   SessionController(this._ref)
@@ -59,6 +60,7 @@ class SessionController extends StateNotifier<SessionState> {
   final SessionNotificationService _notificationService;
 
   Timer? _ticker;
+  Timer? _connectionTimeoutTimer;
   StreamSubscription<String>? _intentSubscription;
   StreamSubscription<VPNStage>? _stageSubscription;
   late final ProviderSubscription<SpeedTestState> _speedSubscription;
@@ -73,6 +75,35 @@ class SessionController extends StateNotifier<SessionState> {
 
   void _log(String message) {
     debugPrint('[SessionController] $message');
+  }
+
+  void _startConnectionTimeout() {
+    _cancelConnectionTimeout();
+    _connectionTimeoutTimer = Timer(_connectionTimeoutDuration, () {
+      if (state.status != SessionStatus.connecting ||
+          _pendingConnection == null) {
+        return;
+      }
+      _log(
+        'Connection timed out after ${_connectionTimeoutDuration.inSeconds} seconds. Aborting attempt.',
+      );
+      final pending = _pendingConnection;
+      _pendingConnection = null;
+      state = state.copyWith(
+        status: SessionStatus.error,
+        errorMessage:
+            'Connection attempt timed out. Please try a different server.',
+      );
+      unawaited(_notificationService.clear());
+      if (pending != null) {
+        unawaited(_vpnPort.disconnect());
+      }
+    });
+  }
+
+  void _cancelConnectionTimeout() {
+    _connectionTimeoutTimer?.cancel();
+    _connectionTimeoutTimer = null;
   }
 
   Future<void> _bootstrap() async {
@@ -123,6 +154,7 @@ class SessionController extends StateNotifier<SessionState> {
     }
 
     if (_stageIndicatesFailure(stage)) {
+      _cancelConnectionTimeout();
       if (_pendingConnection != null) {
         _pendingConnection = null;
         await _notificationService.clear();
@@ -151,6 +183,7 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   Future<void> _completePendingConnection() async {
+    _cancelConnectionTimeout();
     final pending = _pendingConnection;
     if (pending == null) {
       return;
@@ -349,10 +382,12 @@ class SessionController extends StateNotifier<SessionState> {
         initialIp: initialIp,
       );
       await _notificationService.showConnecting(server);
+      _startConnectionTimeout();
 
       final connected = await _vpnPort.connect(vpnServer);
       _log('OpenVPN connect() returned $connected');
       if (!connected) {
+        _cancelConnectionTimeout();
         _pendingConnection = null;
         await _notificationService.clear();
         state = state.copyWith(
@@ -363,6 +398,7 @@ class SessionController extends StateNotifier<SessionState> {
       }
     } catch (e) {
       _log('Connection error: $e');
+      _cancelConnectionTimeout();
       _pendingConnection = null;
       await _notificationService.clear();
       state = state.copyWith(
@@ -375,6 +411,7 @@ class SessionController extends StateNotifier<SessionState> {
   Future<void> disconnect({bool userInitiated = true}) async {
     _log('disconnect() requested. Status: ${state.status}, userInitiated: $userInitiated');
     _manualDisconnectInProgress = true;
+    _cancelConnectionTimeout();
     try {
       final wasConnected = state.status == SessionStatus.connected;
       final stats = wasConnected ? await _vpnPort.getTunnelStats() : <String, dynamic>{};
@@ -425,6 +462,7 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   Future<void> _forceDisconnect({bool clearPrefs = false}) async {
+    _cancelConnectionTimeout();
     await _vpnPort.disconnect();
     if (clearPrefs) {
       await _clearPersistedMeta();
@@ -558,6 +596,7 @@ class SessionController extends StateNotifier<SessionState> {
 
   @override
   void dispose() {
+    _cancelConnectionTimeout();
     _ticker?.cancel();
     _intentSubscription?.cancel();
     _stageSubscription?.cancel();
