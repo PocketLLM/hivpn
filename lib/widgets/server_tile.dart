@@ -52,8 +52,12 @@ class ServerTile extends StatelessWidget {
       onTap: onTap,
       selected: selected,
       leading: CircleAvatar(
-        backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
-        child: Text(_flagEmoji(server.countryCode)),
+        radius: 22,
+        backgroundColor: theme.colorScheme.primary.withOpacity(0.15),
+        child: Text(
+          _flagEmoji(server.countryCode),
+          style: const TextStyle(fontSize: 20),
+        ),
       ),
       title: Text(server.name),
       subtitle: Column(

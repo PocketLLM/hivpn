@@ -475,7 +475,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               builder: (context, constraints) {
                 return serversAsyncValue.when(
                   data: (servers) => SizedBox(
-                    height: 200,
+                    height: 250,
                     child: Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: constraints.maxWidth * 0.04, // 4% of screen width
@@ -617,7 +617,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => const SizedBox(
-        height: 440,
+        height: 520,
         child: ServerPickerSheet(),
       ),
     );
@@ -670,6 +670,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
+
 class _ServerCard extends StatelessWidget {
   const _ServerCard({
     required this.server,
@@ -689,7 +690,7 @@ class _ServerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    
+
     final statusLabel = connected
         ? l10n.badgeConnected
         : selected
@@ -700,9 +701,11 @@ class _ServerCard extends StatelessWidget {
         : theme.colorScheme.onSurface.withOpacity(0.85);
     final pingValue = server.pingMs ?? latency;
     final latencyText = pingValue != null ? '$pingValue ms' : '--';
+    final throughputSource = server.downloadSpeed ?? server.bandwidth;
     final bandwidthText =
-        server.bandwidth != null ? _formatBandwidth(server.bandwidth!) : '--';
-    final sessionsText = server.sessions?.toString() ?? '--';
+        throughputSource != null ? _formatBandwidth(throughputSource) : '--';
+    final sessionsValue = server.sessions;
+    final sessionsText = sessionsValue?.toString() ?? '--';
     final hostLabel = (server.hostName?.isNotEmpty ?? false)
         ? server.hostName!
         : server.endpoint;
@@ -711,11 +714,10 @@ class _ServerCard extends StatelessWidget {
         : server.endpoint.split(':').first;
 
     return Container(
-      width: 200,
-      height: 240,
+      width: 220,
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        color: selected 
+        color: selected
             ? theme.colorScheme.primary.withOpacity(0.1)
             : theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
@@ -741,86 +743,94 @@ class _ServerCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _flagEmoji(server.countryCode),
-                      style: const TextStyle(fontSize: 28),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _flagEmoji(server.countryCode),
+                          style: const TextStyle(fontSize: 28),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.25),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            latencyText,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface.withOpacity(0.8),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.25),
-                        borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 12),
+                    Text(
+                      server.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
                       ),
-                      child: Text(
-                        latencyText,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurface.withOpacity(0.8),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      hostLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                    if (ipLabel != hostLabel) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        ipLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
                         ),
                       ),
+                    ],
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _InfoBadge(
+                          label: 'Ping',
+                          value: latencyText,
+                        ),
+                        _InfoBadge(
+                          label: 'Speed',
+                          value: bandwidthText,
+                        ),
+                        if (sessionsValue != null)
+                          _InfoBadge(
+                            label: 'Sessions',
+                            value: sessionsText,
+                          ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  server.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  hostLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  ipLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                ),
-                const Spacer(),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _InfoBadge(
-                        label: 'Ping',
-                        value: latencyText,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _InfoBadge(
-                        label: 'Speed',
-                        value: bandwidthText,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                _InfoBadge(
-                  label: 'Sessions',
-                  value: sessionsText,
-                ),
-                const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -861,7 +871,6 @@ class _ServerCard extends StatelessWidget {
     return '${value.toStringAsFixed(1)} ${units[unitIndex]}';
   }
 }
-
 class _InfoBadge extends StatelessWidget {
   const _InfoBadge({
     required this.label,
