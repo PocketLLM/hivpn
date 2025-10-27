@@ -8,18 +8,24 @@ class PreferencesState extends Equatable {
     this.hapticsEnabled = true,
     this.localeCode,
     this.privacyPolicyAccepted = false,
+    this.onboardingCompleted = false,
+    this.autoReconnect = false,
   });
 
   final bool autoServerSwitch;
   final bool hapticsEnabled;
   final String? localeCode;
   final bool privacyPolicyAccepted;
+  final bool onboardingCompleted;
+  final bool autoReconnect;
 
   PreferencesState copyWith({
     bool? autoServerSwitch,
     bool? hapticsEnabled,
     Object? localeCode = _sentinel,
     bool? privacyPolicyAccepted,
+    bool? onboardingCompleted,
+    bool? autoReconnect,
   }) {
     return PreferencesState(
       autoServerSwitch: autoServerSwitch ?? this.autoServerSwitch,
@@ -27,6 +33,8 @@ class PreferencesState extends Equatable {
       localeCode:
           identical(localeCode, _sentinel) ? this.localeCode : localeCode as String?,
       privacyPolicyAccepted: privacyPolicyAccepted ?? this.privacyPolicyAccepted,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      autoReconnect: autoReconnect ?? this.autoReconnect,
     );
   }
 
@@ -36,6 +44,8 @@ class PreferencesState extends Equatable {
       'hapticsEnabled': hapticsEnabled,
       'localeCode': localeCode,
       'privacyPolicyAccepted': privacyPolicyAccepted,
+      'onboardingCompleted': onboardingCompleted,
+      'autoReconnect': autoReconnect,
     };
   }
 
@@ -45,6 +55,8 @@ class PreferencesState extends Equatable {
       hapticsEnabled: json['hapticsEnabled'] as bool? ?? true,
       localeCode: json['localeCode'] as String?,
       privacyPolicyAccepted: json['privacyPolicyAccepted'] as bool? ?? false,
+      onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,
+      autoReconnect: json['autoReconnect'] as bool? ?? false,
     );
   }
 
@@ -54,5 +66,7 @@ class PreferencesState extends Equatable {
         hapticsEnabled,
         localeCode,
         privacyPolicyAccepted,
+        onboardingCompleted,
+        autoReconnect,
       ];
 }

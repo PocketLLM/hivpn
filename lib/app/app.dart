@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/home/home_screen.dart';
+import '../features/onboarding/presentation/onboarding_flow.dart';
 import '../features/settings/domain/preferences_controller.dart';
 import '../l10n/app_localizations.dart';
 import '../platform/android/extend_intent_handler.dart';
@@ -18,9 +19,19 @@ class HiVpnApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(extendIntentHandlerProvider);
+    final ready = ref.watch(preferencesReadyProvider);
     final preferences = ref.watch(preferencesControllerProvider);
     final localeCode = preferences.localeCode;
     final navigatorKey = ref.watch(navigatorKeyProvider);
+    final home = ready.when<Widget>(
+      data: (_) {
+        return preferences.onboardingCompleted
+            ? const HomeScreen()
+            : const OnboardingFlow();
+      },
+      loading: () => const _AppLoading(),
+      error: (error, stack) => _AppError(message: error.toString()),
+    );
     return MaterialApp(
       onGenerateTitle: (context) => context.l10n.appTitle,
       theme: buildHiVpnTheme(),
@@ -34,7 +45,41 @@ class HiVpnApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: const HomeScreen(),
+      home: home,
+    );
+  }
+}
+
+class _AppLoading extends StatelessWidget {
+  const _AppLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+  }
+}
+
+class _AppError extends StatelessWidget {
+  const _AppError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Failed to load preferences.\n$message',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
     );
   }
 }
