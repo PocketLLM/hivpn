@@ -10,6 +10,7 @@ final openVpnPortProvider = Provider<OpenVpnPort>((ref) {
   port.initialize().catchError((error) {
     debugPrint('Failed to initialize OpenVPN: $error');
   });
+  ref.onDispose(port.dispose);
   return port;
 });
 

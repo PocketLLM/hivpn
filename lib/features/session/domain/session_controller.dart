@@ -3,10 +3,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openvpn_flutter/openvpn_flutter.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/utils/iterable_extensions.dart';
 import '../../../services/ads/rewarded_ad_service.dart';
+import '../../../services/notifications/session_notification_service.dart';
 import '../../../services/storage/prefs.dart';
 import '../../../services/time/session_clock.dart';
 import '../../../services/time/session_clock_provider.dart';
@@ -35,9 +37,17 @@ class SessionController extends StateNotifier<SessionState> {
         _adService = _ref.read(rewardedAdServiceProvider),
         _clock = _ref.read(sessionClockProvider),
         _settings = _ref.read(settingsControllerProvider.notifier),
+        _notificationService =
+            _ref.read(sessionNotificationServiceProvider),
         super(SessionState.initial()) {
     _speedSubscription =
         _ref.listen<SpeedTestState>(speedTestControllerProvider, _onSpeedUpdate);
+    unawaited(
+      _notificationService.initialize(onAction: _handleNotificationAction),
+    );
+    _stageSubscription = _vpnPort.stageStream.listen((stage) {
+      unawaited(_handleVpnStage(stage));
+    });
     _bootstrap();
   }
 
@@ -46,15 +56,20 @@ class SessionController extends StateNotifier<SessionState> {
   final RewardedAdService _adService;
   final SessionClock _clock;
   final SettingsController _settings;
+  final SessionNotificationService _notificationService;
 
   Timer? _ticker;
   StreamSubscription<String>? _intentSubscription;
+  StreamSubscription<VPNStage>? _stageSubscription;
   late final ProviderSubscription<SpeedTestState> _speedSubscription;
   int _reconnectAttempts = 0;
   bool _pendingAutoConnect = false;
   int _tickCounter = 0;
   SessionMeta? _activeMeta;
   Server? _queuedServer;
+  _PendingConnection? _pendingConnection;
+  Server? _currentServer;
+  bool _manualDisconnectInProgress = false;
 
   Future<void> _bootstrap() async {
     try {
@@ -77,6 +92,110 @@ class SessionController extends StateNotifier<SessionState> {
     if (normalized.contains('disconnect')) {
       unawaited(disconnect(userInitiated: false));
     }
+  }
+
+  Future<void> _handleNotificationAction(String action) async {
+    switch (action) {
+      case SessionNotificationService.actionDisconnect:
+        await disconnect();
+        break;
+      case SessionNotificationService.actionExtend:
+        requestExtension();
+        break;
+    }
+  }
+
+  Future<void> _handleVpnStage(VPNStage stage) async {
+    if (_manualDisconnectInProgress) {
+      if (stage == VPNStage.disconnected) {
+        _manualDisconnectInProgress = false;
+      }
+      return;
+    }
+    if (stage == VPNStage.connected) {
+      await _completePendingConnection();
+      return;
+    }
+
+    if (_stageIndicatesFailure(stage)) {
+      if (_pendingConnection != null) {
+        _pendingConnection = null;
+        await _notificationService.clear();
+        state = state.copyWith(
+          status: SessionStatus.error,
+          errorMessage: 'Unable to establish VPN connection.',
+        );
+        return;
+      }
+      if (state.status == SessionStatus.connected) {
+        await _handleRemoteDisconnect();
+      }
+    }
+  }
+
+  bool _stageIndicatesFailure(VPNStage stage) {
+    switch (stage) {
+      case VPNStage.disconnected:
+      case VPNStage.denied:
+      case VPNStage.error:
+      case VPNStage.exiting:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  Future<void> _completePendingConnection() async {
+    final pending = _pendingConnection;
+    if (pending == null) {
+      return;
+    }
+    _pendingConnection = null;
+    final server = pending.server;
+    final start = DateTime.now().toUtc();
+    final publicIp = pending.initialIp;
+    final meta = SessionMeta(
+      serverId: server.id,
+      serverName: server.name,
+      countryCode: server.countryCode,
+      startElapsedMs: pending.startElapsedMs,
+      durationMs: sessionDuration.inMilliseconds,
+      publicIp: publicIp,
+    );
+    _activeMeta = meta;
+    _currentServer = server;
+    state = state.copyWith(
+      status: SessionStatus.connected,
+      start: start,
+      duration: sessionDuration,
+      startElapsedMs: pending.startElapsedMs,
+      serverId: server.id,
+      serverName: server.name,
+      countryCode: server.countryCode,
+      publicIp: publicIp,
+      expired: false,
+      sessionLocked: true,
+      meta: meta,
+      errorMessage: null,
+    );
+    await _persistMeta(meta);
+    await _ref.read(serverCatalogProvider.notifier).rememberSelection(server);
+    _reconnectAttempts = 0;
+    _queuedServer = null;
+
+    final remaining = await _clock.remaining(
+      startElapsedMs: pending.startElapsedMs,
+      duration: sessionDuration,
+    );
+    await _notificationService.showConnected(
+      server: server,
+      remaining: remaining,
+      state: state,
+    );
+  }
+
+  Future<void> _handleRemoteDisconnect() async {
+    await _forceDisconnect(clearPrefs: true);
   }
 
   void _onSpeedUpdate(SpeedTestState? previous, SpeedTestState next) {
@@ -197,14 +316,13 @@ class SessionController extends StateNotifier<SessionState> {
         hostName: server.hostName ?? server.name,
         ip: server.ip ?? '',
         ping: server.pingMs?.toString() ?? '0',
-        speed: server.bandwidth ?? 0,
-        countryLong: server.name,
+        speed: server.downloadSpeed ?? server.bandwidth ?? 0,
+        countryLong: server.countryName ?? server.name,
         countryShort: server.countryCode,
         numVpnSessions: server.sessions ?? 0,
         openVpnConfigDataBase64: server.openVpnConfigDataBase64 ?? '',
       );
 
-      // Check if we have a valid OpenVPN config
       if (vpnServer.openVpnConfig.isEmpty) {
         state = state.copyWith(
           status: SessionStatus.error,
@@ -213,43 +331,26 @@ class SessionController extends StateNotifier<SessionState> {
         return;
       }
 
+      _pendingConnection = _PendingConnection(
+        server: server,
+        startElapsedMs: startElapsed,
+        initialIp: initialIp,
+      );
+      await _notificationService.showConnecting(server);
+
       final connected = await _vpnPort.connect(vpnServer);
       if (!connected) {
+        _pendingConnection = null;
+        await _notificationService.clear();
         state = state.copyWith(
           status: SessionStatus.error,
           errorMessage: 'Unable to establish VPN connection.',
         );
         return;
       }
-      final start = DateTime.now().toUtc();
-      final publicIp = initialIp;
-      final meta = SessionMeta(
-        serverId: server.id,
-        serverName: server.name,
-        countryCode: server.countryCode,
-        startElapsedMs: startElapsed,
-        durationMs: sessionDuration.inMilliseconds,
-        publicIp: publicIp,
-      );
-      _activeMeta = meta;
-      state = state.copyWith(
-        status: SessionStatus.connected,
-        start: start,
-        duration: sessionDuration,
-        startElapsedMs: startElapsed,
-        serverId: server.id,
-        serverName: server.name,
-        countryCode: server.countryCode,
-        publicIp: publicIp,
-        expired: false,
-        sessionLocked: true,
-        meta: meta,
-      );
-      await _persistMeta(meta);
-      await _ref.read(serverCatalogProvider.notifier).rememberSelection(server);
-      _reconnectAttempts = 0;
-      _queuedServer = null;
     } catch (e) {
+      _pendingConnection = null;
+      await _notificationService.clear();
       state = state.copyWith(
         status: SessionStatus.error,
         errorMessage: 'Unable to establish tunnel.',
@@ -258,29 +359,36 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   Future<void> disconnect({bool userInitiated = true}) async {
-    final stats = await _vpnPort.getTunnelStats();
-    final server = _resolveHistoryServer();
-    final meta = state.meta;
-    Duration? actualDuration;
-    if (meta != null) {
-      final nowMs = await _clock.elapsedRealtime();
-      final elapsedMs = nowMs - meta.startElapsedMs;
-      final clamped = elapsedMs.clamp(0, meta.durationMs) as num;
-      actualDuration = Duration(milliseconds: clamped.toInt());
+    _manualDisconnectInProgress = true;
+    try {
+      final stats = await _vpnPort.getTunnelStats();
+      final server = _resolveHistoryServer();
+      final meta = state.meta;
+      Duration? actualDuration;
+      if (meta != null) {
+        final nowMs = await _clock.elapsedRealtime();
+        final elapsedMs = nowMs - meta.startElapsedMs;
+        final clamped = elapsedMs.clamp(0, meta.durationMs) as num;
+        actualDuration = Duration(milliseconds: clamped.toInt());
+      }
+      await _vpnPort.disconnect();
+      await _notificationService.clear();
+      final sessionForHistory = actualDuration != null
+          ? state.copyWith(duration: actualDuration)
+          : state;
+      await _settings.recordSessionEnd(
+        sessionForHistory,
+        server: server,
+        stats: stats,
+      );
+      await _clearPersistedState();
+      _activeMeta = null;
+      _currentServer = null;
+      state = SessionState.initial();
+      _applyQueuedServerSelection();
+    } finally {
+      _manualDisconnectInProgress = false;
     }
-    await _vpnPort.disconnect();
-    final sessionForHistory = actualDuration != null
-        ? state.copyWith(duration: actualDuration)
-        : state;
-    await _settings.recordSessionEnd(
-      sessionForHistory,
-      server: server,
-      stats: stats,
-    );
-    await _clearPersistedState();
-    _activeMeta = null;
-    state = SessionState.initial();
-    _applyQueuedServerSelection();
   }
 
   Server? _resolveHistoryServer() {
@@ -301,6 +409,10 @@ class SessionController extends StateNotifier<SessionState> {
       await _clearPersistedMeta();
     }
     _activeMeta = null;
+    _pendingConnection = null;
+    await _notificationService.clear();
+    _currentServer = null;
+    _manualDisconnectInProgress = false;
     state = SessionState.initial().copyWith(expired: true, sessionLocked: false);
     _applyQueuedServerSelection();
   }
@@ -357,6 +469,15 @@ class SessionController extends StateNotifier<SessionState> {
         state = state.copyWith(
           status: SessionStatus.error,
           errorMessage: _dataLimitMessage,
+        );
+        return;
+      }
+      final server = _currentServer;
+      if (server != null) {
+        await _notificationService.updateSession(
+          server: server,
+          remaining: remaining,
+          state: state,
         );
       }
     });
@@ -418,7 +539,11 @@ class SessionController extends StateNotifier<SessionState> {
   void dispose() {
     _ticker?.cancel();
     _intentSubscription?.cancel();
+    _stageSubscription?.cancel();
     _speedSubscription.close();
+    _pendingConnection = null;
+    _currentServer = null;
+    unawaited(_notificationService.clear());
     super.dispose();
   }
 
@@ -434,3 +559,15 @@ final sessionControllerProvider =
     StateNotifierProvider<SessionController, SessionState>((ref) {
   return SessionController(ref);
 });
+
+class _PendingConnection {
+  const _PendingConnection({
+    required this.server,
+    required this.startElapsedMs,
+    required this.initialIp,
+  });
+
+  final Server server;
+  final int startElapsedMs;
+  final String? initialIp;
+}
