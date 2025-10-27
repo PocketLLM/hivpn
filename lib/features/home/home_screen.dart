@@ -411,12 +411,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         color: statusBadgeColor,
                       ),
                     ),
-                    const Spacer(),
-                    IconButton.filledTonal(
-                      onPressed: _openSettings,
-                      icon: const Icon(Icons.settings_outlined),
-                      tooltip: l10n.settingsTitle,
-                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -710,12 +704,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _openSettings() async {
-    await ref.read(hapticsServiceProvider).selection();
-    if (!mounted) return;
-    setState(() => _tabIndex = 3);
   }
 
   String _flagEmoji(String countryCode) {

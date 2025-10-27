@@ -1,9 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'package:openvpn_flutter/openvpn_flutter.dart';
+
+import '../../services/vpn/models/vpn.dart';
+import '../../services/vpn/models/vpn_status.dart' as model;
 import '../../services/vpn/vpn_port.dart';
-import '../../services/vpn/wg_config.dart';
 
 class AndroidVpnChannel implements VpnPort {
   factory AndroidVpnChannel({MethodChannel? channel}) {
@@ -29,6 +33,12 @@ class AndroidVpnChannel implements VpnPort {
   @override
   Stream<String> get intentActions => _intentActionsController.stream;
 
+  @override
+  Stream<VPNStage> get stageStream => const Stream.empty();
+
+  @override
+  Stream<model.VpnStatus> get statusStream => const Stream.empty();
+
   Future<void> _handleMethodCall(MethodCall call) async {
     switch (call.method) {
       case 'notifyIntentAction':
@@ -49,12 +59,11 @@ class AndroidVpnChannel implements VpnPort {
   }
 
   @override
-  Future<bool> connect(WgConfig config) async {
-    final result = await _channel.invokeMethod<bool>(
-      'connect',
-      config.toJson(),
-    );
-    return result ?? false;
+  Future<bool> connect(Vpn server) async {
+    // Legacy channel is no longer used for establishing OpenVPN sessions.
+    // Keep the method for backward compatibility but report unsupported usage.
+    debugPrint('AndroidVpnChannel.connect is deprecated.');
+    return false;
   }
 
   @override
