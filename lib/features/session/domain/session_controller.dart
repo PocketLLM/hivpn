@@ -155,24 +155,46 @@ class SessionController extends StateNotifier<SessionState> {
 
     if (_stageIndicatesFailure(stage)) {
       _cancelConnectionTimeout();
-      if (_pendingConnection != null) {
+      final pending = _pendingConnection;
+      if (pending != null) {
         _pendingConnection = null;
         await _notificationService.clear();
-        var errorMessage = 'Unable to establish VPN connection.';
-        if (stage == VPNStage.unknown) {
-          errorMessage = 'Authentication failed. Please try another server.';
-        } else if (stage == VPNStage.denied) {
-          errorMessage = 'VPN connection permission was denied.';
-        }
         state = state.copyWith(
           status: SessionStatus.error,
-          errorMessage: errorMessage,
+          errorMessage: _errorMessageForStage(stage, server: pending.server),
+        );
+        return;
+      }
+      if (state.status == SessionStatus.connecting ||
+          state.status == SessionStatus.preparing) {
+        await _notificationService.clear();
+        state = state.copyWith(
+          status: SessionStatus.error,
+          errorMessage: _errorMessageForStage(stage),
         );
         return;
       }
       if (state.status == SessionStatus.connected) {
         await _handleRemoteDisconnect();
       }
+    }
+  }
+
+  String _errorMessageForStage(VPNStage stage, {Server? server}) {
+    final serverName = server?.name;
+    switch (stage) {
+      case VPNStage.unknown:
+        if (serverName != null) {
+          return 'Authentication failed while connecting to $serverName. Please try another server.';
+        }
+        return 'Authentication failed. Please try another server.';
+      case VPNStage.denied:
+        return 'VPN connection permission was denied.';
+      default:
+        if (serverName != null) {
+          return 'Unable to establish VPN connection to $serverName.';
+        }
+        return 'Unable to establish VPN connection.';
     }
   }
 
