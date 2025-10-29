@@ -112,6 +112,7 @@ class OpenVpnPort implements VpnPort {
       late final String configText;
       try {
         configText = server.openVpnConfig;
+        debugPrint('[OpenVpnPort] Successfully decoded OpenVPN config, length: ${configText.length}');
       } on AppError catch (error) {
         debugPrint('[OpenVpnPort] Invalid OpenVPN config: $error');
         _stageController.add(VPNStage.error);
@@ -129,25 +130,30 @@ class OpenVpnPort implements VpnPort {
       final username = sanitizedConfig.username ?? 'vpn';
       final password = sanitizedConfig.password ?? 'vpn';
 
-      final config = VpnConfig(
-        config: sanitizedConfig.config,
-        country: server.countryLong,
-        username: username,
-        password: password,
-      );
+      debugPrint('[OpenVpnPort] Using username: $username, password: ${password.isNotEmpty ? "****" : "(empty)"}');
+      debugPrint('[OpenVpnPort] Sanitized config length: ${sanitizedConfig.config.length}');
 
+      // For VPN Gate servers, we typically use 'vpn' as both username and password
+      final vpnUsername = username.isNotEmpty ? username : 'vpn';
+      final vpnPassword = password.isNotEmpty ? password : 'vpn';
+      
+      debugPrint('[OpenVpnPort] Attempting connection with username: $vpnUsername');
+      debugPrint('[OpenVpnPort] Server country: ${server.countryLong}');
+      debugPrint('[OpenVpnPort] Config preview (first 500 chars): ${sanitizedConfig.config.substring(0, sanitizedConfig.config.length > 500 ? 500 : sanitizedConfig.config.length)}');
+      
       await _engine!.connect(
-        config.config,
+        sanitizedConfig.config,
         server.countryLong,
-        username: config.username,
-        password: config.password,
+        username: vpnUsername,
+        password: vpnPassword,
         certIsRequired: false,
       );
 
       debugPrint('[OpenVpnPort] OpenVPN connect command dispatched');
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('[OpenVpnPort] Error connecting to VPN: $e');
+      debugPrint('[OpenVpnPort] Stack trace: $stackTrace');
       _isConnected = false;
       _stageController.add(VPNStage.error);
       return false;
@@ -207,6 +213,7 @@ class OpenVpnPort implements VpnPort {
   }
 
   SanitizedOpenVpnConfig _sanitizeOpenVpnConfig(String config) {
+    debugPrint('[OpenVpnPort] Sanitizing OpenVPN config, original length: ${config.length}');
     var working = config.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
     String? username;
     String? password;
@@ -219,6 +226,7 @@ class OpenVpnPort implements VpnPort {
 
     final match = authBlockPattern.firstMatch(working);
     if (match != null) {
+      debugPrint('[OpenVpnPort] Found auth-user-pass block in config');
       final blockContent = match.group(1) ?? '';
       final credentials = blockContent
           .split(RegExp(r'\r?\n'))
@@ -228,9 +236,11 @@ class OpenVpnPort implements VpnPort {
 
       if (credentials.isNotEmpty) {
         username = credentials[0];
+        debugPrint('[OpenVpnPort] Extracted username from auth block: $username');
       }
       if (credentials.length > 1) {
         password = credentials[1];
+        debugPrint('[OpenVpnPort] Extracted password from auth block: ****');
       }
 
       working = working.replaceRange(match.start, match.end, '');
@@ -249,10 +259,12 @@ class OpenVpnPort implements VpnPort {
         return '';
       }
       foundDirective = true;
+      debugPrint('[OpenVpnPort] Found auth-user-pass directive in config');
       return 'auth-user-pass';
     });
 
     if (!foundDirective) {
+      debugPrint('[OpenVpnPort] No auth-user-pass directive found, adding one');
       working = working.trimRight();
       if (working.isNotEmpty && !working.endsWith('\n')) {
         working += '\n';
@@ -261,6 +273,7 @@ class OpenVpnPort implements VpnPort {
     }
 
     final normalized = _ensureTrailingNewline(working.trimRight());
+    debugPrint('[OpenVpnPort] Sanitized config length: ${normalized.length}');
 
     return SanitizedOpenVpnConfig(
       config: normalized,

@@ -30,7 +30,7 @@ const _sessionMetaPrefsKey = 'session_meta_v1';
 const sessionDuration = Duration(hours: 1);
 const _dataLimitMessage = 'Monthly data limit reached.';
 const _extendDuration = Duration(hours: 1);
-const _connectionTimeoutDuration = Duration(seconds: 45);
+const _connectionTimeoutDuration = Duration(seconds: 60);
 
 class SessionController extends StateNotifier<SessionState> {
   SessionController(this._ref)
@@ -91,7 +91,7 @@ class SessionController extends StateNotifier<SessionState> {
       _pendingConnection = null;
       state = state.copyWith(
         status: SessionStatus.error,
-        errorMessage: 'Connection timed out. The server may be unresponsive.',
+        errorMessage: 'Connection timed out after 60 seconds. The server may be unresponsive, blocked by your network, or experiencing high load. Please try another server or check your network settings.',
       );
       unawaited(_notificationService.clear());
       if (pending != null) {
@@ -177,6 +177,9 @@ class SessionController extends StateNotifier<SessionState> {
         await _handleRemoteDisconnect();
       }
     }
+    
+    // Add logging for all stage changes
+    _log('VPN stage changed to: $stage');
   }
 
   String _errorMessageForStage(VPNStage stage, {Server? server}) {
@@ -184,16 +187,26 @@ class SessionController extends StateNotifier<SessionState> {
     switch (stage) {
       case VPNStage.unknown:
         if (serverName != null) {
-          return 'Authentication failed while connecting to $serverName. Please try another server.';
+          return 'Authentication failed while connecting to $serverName. This may be due to incorrect credentials or server issues. Please try another server.';
         }
-        return 'Authentication failed. Please try another server.';
+        return 'Authentication failed. This may be due to incorrect credentials or server issues. Please try another server.';
       case VPNStage.denied:
-        return 'VPN connection permission was denied.';
+        return 'VPN connection permission was denied. Please check app permissions and try again.';
+      case VPNStage.error:
+        if (serverName != null) {
+          return 'Error connecting to $serverName. The server may be offline, experiencing issues, or blocked by your network. Please try another server.';
+        }
+        return 'Error establishing VPN connection. This could be due to server issues, network restrictions, or firewall settings. Please try another server.';
+      case VPNStage.disconnected:
+        if (serverName != null) {
+          return 'Disconnected from $serverName. The connection may have been interrupted or timed out.';
+        }
+        return 'VPN connection was disconnected. The connection may have been interrupted or timed out.';
       default:
         if (serverName != null) {
-          return 'Unable to establish VPN connection to $serverName.';
+          return 'Unable to establish VPN connection to $serverName. Please try another server.';
         }
-        return 'Unable to establish VPN connection.';
+        return 'Unable to establish VPN connection. Please try another server.';
     }
   }
 
@@ -395,6 +408,16 @@ class SessionController extends StateNotifier<SessionState> {
         openVpnConfigDataBase64: server.openVpnConfigDataBase64 ?? '',
       );
 
+      // Validate that we have a configuration
+      if (server.openVpnConfigDataBase64 == null || server.openVpnConfigDataBase64!.isEmpty) {
+        _log('Missing OpenVPN config for server ${server.id}');
+        state = state.copyWith(
+          status: SessionStatus.error,
+          errorMessage: 'Server does not have OpenVPN configuration.',
+        );
+        return;
+      }
+
       try {
         final decodedConfig = vpnServer.openVpnConfig;
         if (decodedConfig.trim().isEmpty) {
@@ -423,6 +446,9 @@ class SessionController extends StateNotifier<SessionState> {
       await _notificationService.showConnecting(server);
       _startConnectionTimeout();
 
+      _log('Attempting to connect to VPN server: ${vpnServer.hostName}, IP: ${vpnServer.ip}');
+      _log('Config length: ${vpnServer.openVpnConfig.length}');
+      
       final connected = await _vpnPort.connect(vpnServer);
       _log('OpenVPN connect() returned $connected');
       if (!connected) {
@@ -431,7 +457,7 @@ class SessionController extends StateNotifier<SessionState> {
         await _notificationService.clear();
         state = state.copyWith(
           status: SessionStatus.error,
-          errorMessage: 'Unable to establish VPN connection.',
+          errorMessage: 'Unable to establish VPN connection. This could be due to server issues, network restrictions, or firewall settings. Please try another server or check your network settings.',
         );
         return;
       }

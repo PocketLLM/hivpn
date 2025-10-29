@@ -58,8 +58,8 @@ class Vpn {
     }
 
     try {
-      final normalized = base64.normalize(raw);
-      final decodedBytes = base64.decode(normalized);
+      // First try to decode as-is
+      final decodedBytes = base64.decode(raw);
       if (decodedBytes.isEmpty) {
         throw const FormatException('Decoded OpenVPN config is empty.');
       }
@@ -73,7 +73,25 @@ class Vpn {
 
       return decoded;
     } on FormatException catch (error) {
-      throw AppError('Failed to decode OpenVPN configuration.', cause: error);
+      // If direct decoding fails, try normalizing first
+      try {
+        final normalized = base64.normalize(raw);
+        final decodedBytes = base64.decode(normalized);
+        if (decodedBytes.isEmpty) {
+          throw const FormatException('Decoded OpenVPN config is empty.');
+        }
+        
+        final decoded = utf8.decode(decodedBytes);
+        if (decoded.trim().isEmpty) {
+          throw const FormatException(
+            'Decoded OpenVPN config is empty after trim.',
+          );
+        }
+        
+        return decoded;
+      } on FormatException catch (normalizeError) {
+        throw AppError('Failed to decode OpenVPN configuration.', cause: normalizeError);
+      }
     } catch (error) {
       if (error is AppError) {
         rethrow;
