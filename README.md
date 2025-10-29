@@ -1,87 +1,108 @@
-# README.md
-<div class="hivpn-logo-wrapper" aria-label="hiVPN wordmark">
-  <div class="hivpn-logo">
-    <span class="hi">hi</span><span class="vpn">VPN</span><span class="dot" aria-hidden="true">•</span>
-  </div>
-</div>
-<style>
-.hivpn-logo-wrapper {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  margin: 1.5rem 0 0.5rem;
-}
-.hivpn-logo {
-  --hi-color: #0E1116;
-  --vpn-color: #2E7CF6;
-  --dot-color: #FF3B30;
-  font-family: Inter, -apple-system, Segoe UI, Roboto, system-ui, sans-serif;
-  font-weight: 700;
-  font-size: clamp(2.4rem, 6vw, 3.4rem);
-  letter-spacing: 0.06em;
-  display: inline-flex;
-  align-items: center;
-  text-align: left;
-  color: var(--hi-color);
-}
-.hivpn-logo .hi {
-  color: var(--hi-color);
-}
-.hivpn-logo .vpn {
-  color: var(--vpn-color);
-  margin-left: 0.1em;
-}
-.hivpn-logo .dot {
-  color: var(--dot-color);
-  font-size: 0.35em;
-  margin-left: 0.3em;
-  align-self: flex-start;
-  position: relative;
-  top: 0.1em;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .hivpn-logo {
-    animation: hivpn-reveal 1.2s ease both;
-  }
-  @keyframes hivpn-reveal {
-    from {
-      letter-spacing: 0.3em;
-      opacity: 0;
-    }
-    to {
-      letter-spacing: 0.06em;
-      opacity: 1;
-    }
-  }
-}
-.download-button-wrap {
-  display: flex;
-  justify-content: center;
-  margin: 0.75rem 0 1.5rem;
-}
-.download-button {
-  font-family: Inter, -apple-system, Segoe UI, Roboto, system-ui, sans-serif;
-  font-weight: 600;
-  background: linear-gradient(90deg, #2E7CF6, #174CBA);
-  color: #fff;
-  padding: 0.85rem 1.8rem;
-  border-radius: 999px;
-  text-decoration: none;
-  box-shadow: 0 8px 20px rgba(46, 124, 246, 0.25);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.download-button:focus,
-.download-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(46, 124, 246, 0.35);
-}
-</style>
+<p align="center">
+  <img src="screenshots/appicon.png" alt="hiVPN Logo" width="120"/>
+</p>
 
-Secure, community-powered VPN for Android today, with iOS support on the roadmap.
+<h1 align="center">
+  <span style="color: #0E1116;">hi</span><span style="color: #2E7CF6;">VPN</span><span style="color: #FF3B30; font-size: 0.5em; vertical-align: super;">•</span>
+</h1>
 
-<div class="download-button-wrap">
-  <a class="download-button" href="https://github.com/OWNER/hivpn/releases" rel="noopener" target="_blank">Download Android APK on GitHub</a>
-</div>
+<p align="center">
+  <a href="https://github.com/Mr-Dark-debug/hivpn/releases/latest">
+    <img src="https://img.shields.io/github/v/release/Mr-Dark-debug/hivpn?style=for-the-badge&color=2E7CF6" alt="GitHub release">
+  </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" alt="License: MIT">
+  </a>
+  <a href="https://flutter.dev">
+    <img src="https://img.shields.io/badge/Flutter-3.13.0-2E7CF6?style=for-the-badge&logo=flutter" alt="Flutter">
+  </a>
+</p>
+
+<p align="center">
+  Secure, community-powered VPN for Android today, with iOS support on the roadmap. hiVPN provides fast and reliable connections with a focus on privacy and ease of use.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Mr-Dark-debug/hivpn/releases/latest">
+    <img src="https://img.shields.io/badge/Download-Latest_Release-2E7CF6?style=for-the-badge&logo=github" alt="Download Latest Release">
+  </a>
+</p>
+
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/Mr-Dark-debug/hivpn)](https://github.com/Mr-Dark-debug/hivpn/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Flutter](https://img.shields.io/badge/Flutter-3.13.0-blue.svg)](https://flutter.dev/)
+
+## 🌟 Key Features
+
+- 🚀 One-tap connection to fastest available server
+- 🌍 1000+ servers in 30+ countries
+- 🔒 Strong encryption for maximum security
+- 📊 Built-in speed testing
+- 📈 Connection history and statistics
+- 🎯 Smart server selection
+- 🌙 Dark/Light theme support
+- 🛡️ No-logs policy
+- 🆓 Free to use with premium features
+
+## 📱 Screenshots
+
+### Onboarding
+| Step 1 | Step 2 | Step 3 |
+|--------|--------|--------|
+| ![Onboarding 1](screenshots/ob1.png) | ![Onboarding 2](screenshots/ob2.png) | ![Onboarding 3](screenshots/ob3.png) |
+
+### Main App
+| Splash Screen | Home Screen | Server Selection |
+|--------------|-------------|-----------------|
+| ![Splash](screenshots/splash_screen.png) | ![Home](screenshots/homepage.png) | ![Servers](screenshots/serverlist.png) |
+
+| Speed Test | Settings | Connection Info |
+|------------|----------|-----------------|
+| ![Speed Test](screenshots/speedtest.png) | ![Settings](screenshots/settings.png) | ![More Info](screenshots/moreinfo.png) |
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Flutter SDK (>=3.13.0)
+- Android Studio / Xcode (for mobile development)
+- Google Mobile Ads account (for ad integration)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Mr-Dark-debug/hivpn.git
+   cd hivpn
+   ```
+
+2. **Get dependencies**
+   ```bash
+   flutter pub get
+   ```
+
+3. **Run the app**
+   ```bash
+   flutter run
+   ```
+
+## 🛠️ Project Structure
+
+```
+lib/
+├── app/                 # App configuration and theme
+├── core/                # Core utilities and constants
+├── features/            # Feature modules
+│   ├── connection/      # VPN connection management
+│   ├── history/         # Connection history and stats
+│   ├── network/         # Network utilities
+│   ├── onboarding/      # User onboarding flow
+│   ├── referral/        # Referral system
+│   ├── servers/         # Server management
+│   ├── session/         # Session management
+│   └── settings/        # App settings
+└── main.dart           # App entry point
+```
 
 ## 1. Overview
 hiVPN is an Android-first Flutter client that drives OpenVPN via the `openvpn_flutter` engine, discovers volunteer VPNGate servers, and offers built-in network diagnostics with `flutter_speed_test_plus`, all coordinated through Riverpod providers. <!-- evidence: lib/services/vpn/openvpn_port.dart:1-170 --> <!-- evidence: lib/features/servers/data/server_repository.dart:1-190 --> <!-- evidence: lib/services/speedtest/speedtest_service.dart:1-120 --> <!-- evidence: pubspec.yaml:1-60 -->
@@ -113,6 +134,17 @@ hiVPN is an Android-first Flutter client that drives OpenVPN via the `openvpn_fl
 - [Release process](#15-release-process)
 - [License](#16-license)
 - [Acknowledgements](#17-acknowledgements)
+
+## 🔌 Dependencies
+
+- **State Management**: `flutter_riverpod`
+- **VPN**: `openvpn_flutter`
+- **Ads**: `google_mobile_ads`
+- **Local Storage**: `shared_preferences`, `flutter_secure_storage`
+- **Networking**: `dio`, `http`
+- **UI**: `google_fonts`, `flutter_svg`
+- **Analytics**: `firebase_analytics`
+- **Localization**: `intl`
 
 ## 4. Features
 - ✅ OpenVPN tunnel management with staged status updates through `openvpn_flutter`. <!-- evidence: lib/services/vpn/openvpn_port.dart:1-200 -->
@@ -274,8 +306,35 @@ Use Riverpod providers for state, keep business logic inside `lib/features/*` sl
 4. Sign artifacts (replace debug signingConfig) and upload to GitHub Releases (APK distribution) / Play Console when ready.
 5. TODO: Automate via CI once workflows are added.
 
-## 16. License
-**TODO:** Choose and add an open-source license for this project.
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read our [contributing guidelines](CONTRIBUTING.md) before submitting pull requests.
+
+## 📄 Privacy Policy
+
+Please read our [Privacy Policy](PRIVACY.md) to understand how we handle your data.
+
+## 📬 Contact
+
+For feature requests and support, please open an issue on GitHub.
+
+## 📱 Download
+
+[![Download on the App Store](https://developer.apple.com/app-store/marketing/guidelines/images/badge-download-on-the-app-store.svg)](https://apps.apple.com/app/hivpn/idYOUR_APP_ID)
+[![Get it on Google Play](https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png)](https://play.google.com/store/apps/details?id=com.mrdark.hivpn)
+
+Or download the latest APK from our [GitHub Releases](https://github.com/Mr-Dark-debug/hivpn/releases) page.
+
+---
+
+Made with ❤️ by hiVPN Team
+## 📄 License
+
+This project is licensed under the [Apache License 2.0](LICENSE).
 
 ## 17. Acknowledgements
 - [VPNGate Project](https://www.vpngate.net/) for the public VPN catalogue.

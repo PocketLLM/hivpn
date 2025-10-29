@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Documentation
+D:\Projects\hivpn\code.md
+D:\Projects\hivpn\IMPLEMENTATION_STATUS.md
+D:\Projects\hivpn\information.md
