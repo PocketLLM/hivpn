@@ -28,10 +28,6 @@
   </a>
 </p>
 
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/Mr-Dark-debug/hivpn)](https://github.com/Mr-Dark-debug/hivpn/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Flutter](https://img.shields.io/badge/Flutter-3.13.0-blue.svg)](https://flutter.dev/)
-
 ## 🌟 Key Features
 
 - 🚀 One-tap connection to fastest available server
